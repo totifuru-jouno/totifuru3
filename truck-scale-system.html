@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>計量管理システム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222638;
+    --border: #2e3347;
+    --accent: #00d4aa;
+    --accent2: #f5a623;
+    --danger: #ff4d4d;
+    --text: #e8eaf0;
+    --text-muted: #7b8098;
+    --green: #2ecc71;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ヘッダー */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .header-title span { color: var(--accent); }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* タブ */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 4px;
+  }
+  .tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-size: 13px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* メインコンテンツ */
+  .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* カード */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* グリッド */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  /* サマリーカード */
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+  .stat-card.warning::after { background: var(--accent2); }
+  .stat-card.danger::after { background: var(--danger); }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat-value small { font-size: 14px; color: var(--text-muted); margin-left: 4px; }
+  .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* フォーム */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .form-control {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  .form-control:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  select.form-control { cursor: pointer; }
+
+  /* ボタン */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #00b890; }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-warning { background: var(--accent2); color: #000; }
+  .btn-lg { padding: 14px 28px; font-size: 16px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-block { width: 100%; justify-content: center; }
+
+  /* テーブル */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:hover td { background: var(--surface2); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* バッジ */
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-green { background: rgba(46,204,113,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(245,166,35,0.15); color: var(--accent2); }
+  .badge-red { background: rgba(255,77,77,0.15); color: var(--danger); }
+  .badge-blue { background: rgba(0,212,170,0.15); color: var(--accent); }
+
+  /* 計量入力パネル */
+  .scale-display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .scale-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .scale-unit {
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+  .scale-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* アラート */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .alert-danger {
+    background: rgba(255,77,77,0.1);
+    border: 1px solid rgba(255,77,77,0.3);
+    color: #ff6b6b;
+  }
+  .alert-warning {
+    background: rgba(245,166,35,0.1);
+    border: 1px solid rgba(245,166,35,0.3);
+    color: var(--accent2);
+  }
+  .alert-success {
+    background: rgba(46,204,113,0.1);
+    border: 1px solid rgba(46,204,113,0.3);
+    color: var(--green);
+  }
+
+  /* ライブリスト */
+  .live-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .live-icon {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .live-info { flex: 1; }
+  .live-plate { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 15px; }
+  .live-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* 区切り */
+  .section-gap { margin-top: 24px; }
+  .text-right { text-align: right; }
+  .text-muted { color: var(--text-muted); }
+  .flex { display: flex; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .gap-8 { gap: 8px; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-16 { margin-bottom: 16px; }
+
+  /* モーダル */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 480px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.2s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  @media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    .main { padding: 16px; }
+  }
+  @media (max-width: 480px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <div class="header-title">
+    <span>⚖</span> 計量管理システム <span style="color:var(--text-muted);font-weight:300;font-size:13px;">Phase 2</span>
+  </div>
+  <div class="header-right">
+    <div class="status-dot"></div>
+    <span id="clock"></span>
+    <span style="color:var(--border)">|</span>
+    <span>本日 <span id="today-count" style="color:var(--accent)">0</span> 台</span>
+  </div>
+</div>
+
+<!-- タブ -->
+<div class="tabs">
+  <div class="tab active" onclick="showPage('dashboard')">📊 ダッシュボード</div>
+  <div class="tab" onclick="showPage('entry')">🚛 入退場登録</div>
+  <div class="tab" onclick="showPage('history')">📋 履歴・集計</div>
+  <div class="tab" onclick="showPage('master')">🗂 マスタ管理</div>
+</div>
+
+<!-- メインコンテンツ -->
+<div class="main">
+
+  <!-- ダッシュボード -->
+  <div id="page-dashboard" class="page active">
+    <div class="grid-4 mb-16">
+      <div class="stat-card">
+        <div class="stat-label">本日の来場台数</div>
+        <div class="stat-value" id="stat-today">0<small>台</small></div>
+        <div class="stat-sub">現在場内: <span id="stat-inside">0</span>台</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本日の総受入重量</div>
+        <div class="stat-value" id="stat-weight">0<small>t</small></div>
+        <div class="stat-sub">平均: <span id="stat-avg">0</span>t/台</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-label">過積載アラート</div>
+        <div class="stat-value" id="stat-alert" style="color:var(--accent2)">0<small>件</small></div>
+        <div class="stat-sub">本日発生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本日の請求合計</div>
+        <div class="stat-value" id="stat-amount">¥0</div>
+        <div class="stat-sub">処理済: <span id="stat-billed">0</span>件</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- 場内車両 -->
+      <div class="card">
+        <div class="card-title">現在場内の車両</div>
+        <div id="live-list">
+          <div class="text-muted" style="text-align:center;padding:20px;font-size:13px;">場内に車両はありません</div>
+        </div>
+      </div>
+
+      <!-- 直近履歴 -->
+      <div class="card">
+        <div class="card-title">直近の処理</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>時刻</th>
+                <th>ナンバー</th>
+                <th>正味重量</th>
+                <th>状態</th>
+              </tr>
+            </thead>
+            <tbody id="recent-table">
+              <tr><td colspan="4" class="text-muted" style="text-align:center">まだ処理がありません</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 入退場登録 -->
+  <div id="page-entry" class="page">
+    <div class="grid-2">
+      <!-- 入場登録 -->
+      <div class="card">
+        <div class="card-title">🟢 入場登録</div>
+
+        <!-- QRスキャンエリア -->
+        <div id="qr-scan-area" style="display:none;margin-bottom:16px;">
+          <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;">
+            <video id="qr-video" style="width:100%;display:block;" playsinline></video>
+            <canvas id="qr-canvas" style="display:none;"></canvas>
+            <div style="position:absolute;inset:0;border:2px solid var(--accent);border-radius:8px;pointer-events:none;">
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;height:60%;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);"></div>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="stopQRScan()">📷 スキャン停止</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">車両ナンバー *</label>
+          <div style="display:flex;gap:8px;">
+            <input id="in-plate" class="form-control" placeholder="例: 福島 100 あ 1234" style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;">
+            <button class="btn btn-secondary" onclick="startQRScan()" title="QRコードで読取" style="white-space:nowrap;flex-shrink:0;">📷 QR</button>
+          </div>
+        </div>
+        <div id="qr-result-msg"></div>
+        <div class="form-group">
+          <label class="form-label">車種 / 業者名</label>
+          <select id="in-vendor" class="form-control">
+            <option value="">-- 選択または入力 --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">受入 / 出荷</label>
+          <div style="display:flex;gap:8px;">
+            <button id="btn-nyukai" class="btn btn-primary" style="flex:1;" onclick="setDirection('受入')">🟢 受入</button>
+            <button id="btn-shukka" class="btn btn-secondary" style="flex:1;" onclick="setDirection('出荷')">🔵 出荷</button>
+          </div>
+          <input type="hidden" id="in-direction" value="受入">
+        </div>
+        <div class="form-group">
+          <label class="form-label">品目種別</label>
+          <select id="in-waste" class="form-control" onchange="updateWasteOptions()">
+          </select>
+        </div>
+        <div class="scale-display">
+          <div class="scale-number" id="in-weight-display">0.00</div><span class="scale-unit">t</span>
+          <div class="scale-label">車両総重量（空車込み）</div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+            <button class="btn btn-secondary btn-sm" onclick="simulateWeight('in')">⟳ 計量シミュレート</button>
+            <input id="in-weight-manual" class="form-control" type="number" step="0.01" placeholder="手動入力(t)" style="width:140px;text-align:center;">
+          </div>
+        </div>
+        <div id="in-alert"></div>
+        <button class="btn btn-primary btn-lg btn-block" onclick="registerEntry()">入場登録 →</button>
+      </div>
+
+      <!-- 退場登録 -->
+      <div class="card">
+        <div class="card-title">🔴 退場登録</div>
+        <div class="form-group">
+          <label class="form-label">場内車両を選択</label>
+          <select id="out-vehicle" class="form-control" onchange="selectOutVehicle()">
+            <option value="">-- 場内の車両を選択 --</option>
+          </select>
+        </div>
+        <div id="out-info" style="display:none">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;">
+            <div class="flex-between mb-8">
+              <span class="text-muted" style="font-size:12px">入場時重量</span>
+              <span class="mono" id="out-in-weight">--</span>
+            </div>
+            <div class="flex-between mb-8">
+              <span class="text-muted" style="font-size:12px">入場時刻</span>
+              <span class="mono" id="out-in-time">--</span>
+            </div>
+            <div class="flex-between">
+              <span class="text-muted" style="font-size:12px">廃棄物種別</span>
+              <span id="out-waste-type">--</span>
+            </div>
+          </div>
+          <div class="scale-display">
+            <div class="scale-number" id="out-weight-display">0.00</div><span class="scale-unit">t</span>
+            <div class="scale-label">退場時重量（空車重量）</div>
+            <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+              <button class="btn btn-secondary btn-sm" onclick="simulateWeight('out')">⟳ 計量シミュレート</button>
+              <input id="out-weight-manual" class="form-control" type="number" step="0.01" placeholder="手動入力(t)" style="width:140px;text-align:center;">
+            </div>
+          </div>
+          <div id="net-result" style="display:none;background:var(--bg);border:1px solid var(--accent);border-radius:6px;padding:16px;text-align:center;margin-bottom:16px;">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">正味重量（受入量）</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:32px;color:var(--accent);font-weight:600" id="net-weight-display">0.00 t</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px" id="charge-display"></div>
+          </div>
+          <div id="overload-alert"></div>
+          <button class="btn btn-danger btn-lg btn-block" onclick="registerExit()">退場・伝票発行 →</button>
+        </div>
+        <div id="out-empty" style="text-align:center;padding:40px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:8px">🅿</div>
+          場内に車両がありません
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 履歴・集計 -->
+  <div id="page-history" class="page">
+    <div class="card mb-16">
+      <div class="flex-between">
+        <div class="card-title" style="margin-bottom:0">絞り込み</div>
+        <div style="display:flex;gap:8px">
+          <input type="date" id="filter-date" class="form-control" style="width:160px;">
+          <select id="filter-waste" class="form-control" style="width:160px;">
+            <option value="">すべての種別</option>
+            <option value="一般廃棄物">一般廃棄物</option>
+            <option value="産業廃棄物">産業廃棄物</option>
+            <option value="資源物">資源物</option>
+          </select>
+          <button class="btn btn-secondary" onclick="filterHistory()">検索</button>
+          <button class="btn btn-primary" onclick="exportCSV()">📥 CSV出力</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3 mb-16">
+      <div class="stat-card">
+        <div class="stat-label">表示件数</div>
+        <div class="stat-value" id="h-count">0<small>件</small></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">合計重量</div>
+        <div class="stat-value" id="h-weight">0<small>t</small></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">合計金額</div>
+        <div class="stat-value" id="h-amount">¥0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">処理履歴</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>受付番号</th>
+              <th>日時</th>
+              <th>区分</th>
+              <th>ナンバー</th>
+              <th>業者名</th>
+              <th>種別</th>
+              <th>入場重量</th>
+              <th>退場重量</th>
+              <th>正味重量</th>
+              <th>金額</th>
+              <th>状態</th>
+            </tr>
+          </thead>
+          <tbody id="history-table">
+            <tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px">まだ処理履歴がありません</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- マスタ管理 -->
+  <div id="page-master" class="page">
+    <div class="grid-2">
+      <!-- 業者マスタ -->
+      <div class="card">
+        <div class="flex-between mb-16">
+          <div class="card-title" style="margin-bottom:0">業者・車両マスタ</div>
+          <button class="btn btn-primary btn-sm" onclick="showVendorModal()">＋ 追加</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ナンバー</th><th>業者名</th><th>種別</th><th>適用単価</th><th>区分</th><th>操作</th></tr>
+            </thead>
+            <tbody id="vendor-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 単価設定 -->
+      <div class="card">
+        <div class="card-title">廃棄物単価設定</div>
+        <div id="price-list"></div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary btn-block" onclick="savePrices()">単価を保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 過積載設定 -->
+    <div class="card section-gap">
+      <div class="card-title">過積載アラート設定</div>
+      <div class="grid-3">
+        <div class="form-group">
+          <label class="form-label">上限重量（t）</label>
+          <input id="overload-limit" class="form-control" type="number" value="10" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">警告レベル（上限の%）</label>
+          <input id="warning-level" class="form-control" type="number" value="90" step="5">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary btn-block" onclick="saveSettings()">設定を保存</button>
+        </div>
+      </div>
+      <div id="settings-alert"></div>
+    </div>
+
+    <!-- 単価変更履歴 -->
+    <div class="card section-gap">
+      <div class="card-title">💴 単価変更履歴</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>変更日時</th><th>業者名</th><th>変更前</th><th>変更後</th><th>種別</th><th>承認者</th><th>備考</th></tr>
+          </thead>
+          <tbody id="price-history-table">
+            <tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">単価変更の履歴がありません</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 業者追加モーダル -->
+<div id="vendor-modal" class="modal-overlay">
+  <div class="modal" style="width:520px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-title">🚛 業者・車両登録</div>
+
+    <!-- 車検証QR読取エリア -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">📋 車検証QRコードから自動入力</div>
+      <div id="shaken-scan-area" style="display:none;margin-bottom:10px;">
+        <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;">
+          <video id="shaken-video" style="width:100%;display:block;height:200px;object-fit:cover;" playsinline></video>
+          <canvas id="shaken-canvas" style="display:none;"></canvas>
+          <div style="position:absolute;inset:0;pointer-events:none;">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:60%;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);"></div>
+            <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:11px;color:var(--accent);">車検証のQRコードを枠内に合わせてください</div>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-block btn-sm" style="margin-top:8px" onclick="stopShakenScan()">■ スキャン停止</button>
+      </div>
+      <div id="shaken-result-msg" style="margin-bottom:8px;"></div>
+      <button class="btn btn-secondary btn-block" onclick="startShakenScan()" id="shaken-scan-btn">
+        📷 車検証QRを読み取る
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ナンバープレート *</label>
+      <input id="v-plate" class="form-control" placeholder="例: 福島 100 あ 1234" style="font-family:'JetBrains Mono',monospace;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">車名・型式（任意）</label>
+      <input id="v-model" class="form-control" placeholder="例: トヨタ ダイナ">
+    </div>
+    <div class="form-group">
+      <label class="form-label">業者名 *</label>
+      <input id="v-name" class="form-control" placeholder="株式会社〇〇">
+    </div>
+    <div class="form-group">
+      <label class="form-label">廃棄物種別</label>
+      <select id="v-waste" class="form-control">
+        <optgroup label="【受入】廃棄物系">
+          <option value="一般廃棄物">一般廃棄物</option>
+          <option value="産業廃棄物（木材以外）">産業廃棄物（木材以外）</option>
+          <option value="資源物">資源物</option>
+        </optgroup>
+        <optgroup label="【受入】木材系">
+          <option value="丸太・原木（受入）">丸太・原木（受入）</option>
+          <option value="解体木材（産廃）">解体木材（産廃）</option>
+        </optgroup>
+        <optgroup label="【出荷】木材製品">
+          <option value="出荷丸太">出荷丸太</option>
+          <option value="チップ（出荷）">チップ（出荷）</option>
+          <option value="薪（出荷）">薪（出荷）</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <!-- 単価セクション -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:600;letter-spacing:0.05em;">💴 単価設定</div>
+      <div class="form-group">
+        <label class="form-label">基本単価（円/t）<span style="color:var(--text-muted);font-weight:400">※廃棄物種別から自動参照</span></label>
+        <input id="v-base-price" class="form-control mono" type="text" readonly style="color:var(--text-muted);cursor:not-allowed;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">営業提案単価（円/t）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="v-sales-price" class="form-control" type="number" placeholder="例: 13000">
+          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">営業担当</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" style="color:var(--accent2);">👑 社長承認単価（円/t）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="v-president-price" class="form-control" type="number" placeholder="社長が入力・確定">
+          <span style="font-size:12px;color:var(--accent2);white-space:nowrap;">社長</span>
+        </div>
+      </div>
+      <div id="v-effective-price-display" style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:6px;font-size:13px;display:none;">
+        <span style="color:var(--text-muted);">適用単価：</span>
+        <span id="v-effective-price-val" class="mono" style="color:var(--accent);font-weight:600;"></span>
+        <span style="color:var(--text-muted);font-size:11px;" id="v-effective-price-note"></span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">単価備考・交渉メモ</label>
+      <input id="v-price-note" class="form-control" placeholder="例: 長期契約のため特別対応">
+    </div>
+    <div class="form-group">
+      <label class="form-label">区分</label>
+      <select id="v-type" class="form-control">
+        <option value="定期">定期契約</option>
+        <option value="不定期">不定期</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="addVendor()">登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- QRコード表示モーダル -->
+<div id="qr-modal" class="modal-overlay">
+  <div class="modal" style="text-align:center;">
+    <div class="modal-title" style="justify-content:center;">📱 QRコード</div>
+    <div id="qr-display-info" style="margin-bottom:16px;font-size:13px;color:var(--text-muted);"></div>
+    <div id="qr-code-img" style="display:flex;justify-content:center;margin-bottom:16px;background:#fff;padding:16px;border-radius:8px;"></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">このQRコードを印刷して運転手に渡してください</div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+      <button class="btn btn-primary" onclick="printQR()">🖨 印刷</button>
+    </div>
+  </div>
+</div>
+
+<!-- 単価承認モーダル -->
+<div id="price-modal" class="modal-overlay">
+  <div class="modal" style="width:500px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-title">💴 単価承認・変更</div>
+    <div id="price-modal-vendor-info" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;font-size:13px;"></div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:600;">現在の単価状況</div>
+      <div class="flex-between mb-8">
+        <span class="text-muted" style="font-size:12px;">基本単価</span>
+        <span class="mono" id="pm-base">--</span>
+      </div>
+      <div class="flex-between mb-8">
+        <span class="text-muted" style="font-size:12px;">営業提案単価</span>
+        <span class="mono" id="pm-sales">--</span>
+      </div>
+      <div class="flex-between mb-8">
+        <span style="font-size:12px;color:var(--accent2);">👑 社長承認単価</span>
+        <span class="mono" id="pm-president" style="color:var(--accent2);">--</span>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;" class="flex-between">
+        <span style="font-size:13px;font-weight:600;">現在の適用単価</span>
+        <span class="mono" id="pm-effective" style="color:var(--accent);font-size:16px;font-weight:600;">--</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">新しい営業提案単価（円/t）</label>
+      <input id="pm-new-sales" class="form-control" type="number" placeholder="変更する場合に入力">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="color:var(--accent2);">👑 新しい社長承認単価（円/t）</label>
+      <input id="pm-new-president" class="form-control" type="number" placeholder="社長が入力・確定">
+    </div>
+    <div class="form-group">
+      <label class="form-label">変更理由・備考</label>
+      <input id="pm-note" class="form-control" placeholder="例: 長期契約更新、数量増加による値引き">
+    </div>
+    <div id="pm-history" style="margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-warning" onclick="savePriceApproval()">単価を更新・承認</button>
+    </div>
+  </div>
+</div>
+
+<!-- 伝票モーダル -->
+<div id="ticket-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">🧾 計量伝票</div>
+    <div id="ticket-content" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:20px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+      <button class="btn btn-primary" onclick="printTicket()">🖨 印刷</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== データストア =====
+let state = {
+  vehicles: [],      // 場内車両
+  history: [],       // 処理履歴
+  vendors: [         // 業者マスタ
+    { plate: '福島100あ1234', name: '鈴木運送', waste: '一般廃棄物', price: 15000, salesPrice: null, presidentPrice: null, approvedBy: '', approvedDate: '', priceNote: '', type: '定期', priceHistory: [] },
+    { plate: '福島200い5678', name: '田中産業', waste: '産業廃棄物', price: 20000, salesPrice: null, presidentPrice: null, approvedBy: '', approvedDate: '', priceNote: '', type: '定期', priceHistory: [] },
+    { plate: '宮城300う9012', name: '佐藤リサイクル', waste: '資源物', price: 8000, salesPrice: null, presidentPrice: null, approvedBy: '', approvedDate: '', priceNote: '', type: '不定期', priceHistory: [] },
+  ],
+  prices: {
+    // 【受入】廃棄物系
+    '一般廃棄物': 15000,
+    '産業廃棄物（木材以外）': 20000,
+    '資源物': 8000,
+    // 【受入】木材系
+    '丸太・原木（受入）': 5000,
+    '解体木材（産廃）': 18000,
+    // 【出荷】木材製品
+    '出荷丸太': 12000,
+    'チップ（出荷）': 6000,
+    '薪（出荷）': 8000,
+  },
+  settings: { overloadLimit: 10, warningLevel: 90 },
+  counter: 1,
+};
+
+// ===== 受入/出荷切替 =====
+const ITEMS_NYUKAI = [
+  { group: '廃棄物系', items: ['一般廃棄物', '産業廃棄物（木材以外）', '資源物'] },
+  { group: '木材系', items: ['丸太・原木（受入）', '解体木材（産廃）'] },
+];
+const ITEMS_SHUKKA = [
+  { group: '木材製品', items: ['出荷丸太', 'チップ（出荷）', '薪（出荷）'] },
+];
+
+function setDirection(dir) {
+  document.getElementById('in-direction').value = dir;
+  document.getElementById('btn-nyukai').className = dir === '受入' ? 'btn btn-primary' : 'btn btn-secondary';
+  document.getElementById('btn-shukka').className = dir === '出荷' ? 'btn btn-primary' : 'btn btn-secondary';
+  document.getElementById('btn-nyukai').style.flex = '1';
+  document.getElementById('btn-shukka').style.flex = '1';
+  updateWasteOptions();
+}
+
+function updateWasteOptions() {
+  const dir = document.getElementById('in-direction').value;
+  const sel = document.getElementById('in-waste');
+  const groups = dir === '出荷' ? ITEMS_SHUKKA : ITEMS_NYUKAI;
+  sel.innerHTML = '';
+  groups.forEach(g => {
+    const og = document.createElement('optgroup');
+    og.label = g.group;
+    g.items.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item;
+      opt.textContent = item;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+}
+
+// ===== 時計 =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('ja-JP');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== タブ =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') renderHistory();
+  if (name === 'master') renderMaster();
+  if (name === 'entry') { updateOutSelect(); updateWasteOptions(); }
+}
+
+// ===== 計量シミュレート =====
+function simulateWeight(dir) {
+  const w = (Math.random() * 8 + 2).toFixed(2);
+  if (dir === 'in') {
+    document.getElementById('in-weight-display').textContent = w;
+    document.getElementById('in-weight-manual').value = w;
+  } else {
+    document.getElementById('out-weight-display').textContent = w;
+    document.getElementById('out-weight-manual').value = w;
+    calcNetWeight();
+  }
+}
+
+function calcNetWeight() {
+  const sel = document.getElementById('out-vehicle').value;
+  if (!sel) return;
+  const v = state.vehicles.find(x => x.id == sel);
+  if (!v) return;
+  const outW = parseFloat(document.getElementById('out-weight-manual').value) || 0;
+  const net = (v.inWeight - outW).toFixed(2);
+  if (net > 0) {
+    document.getElementById('net-result').style.display = 'block';
+    document.getElementById('net-weight-display').textContent = net + ' t';
+    const price = state.prices[v.waste] || 15000;
+    const charge = Math.round(net * price);
+    document.getElementById('charge-display').textContent = '請求額（目安）: ¥' + charge.toLocaleString();
+    // 過積載チェック
+    const limit = state.settings.overloadLimit;
+    const warnAt = limit * state.settings.warningLevel / 100;
+    const alertEl = document.getElementById('overload-alert');
+    if (net > limit) {
+      alertEl.innerHTML = `<div class="alert alert-danger">⚠ 過積載！ 上限 ${limit}t を超えています（${net}t）</div>`;
+    } else if (net > warnAt) {
+      alertEl.innerHTML = `<div class="alert alert-warning">⚠ 警告: 上限の${state.settings.warningLevel}%を超えています</div>`;
+    } else {
+      alertEl.innerHTML = '';
+    }
+  }
+}
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'out-weight-manual') {
+    document.getElementById('out-weight-display').textContent = parseFloat(e.target.value).toFixed(2) || '0.00';
+    calcNetWeight();
+  }
+  if (e.target.id === 'in-weight-manual') {
+    document.getElementById('in-weight-display').textContent = parseFloat(e.target.value).toFixed(2) || '0.00';
+  }
+});
+
+// ===== 入場登録 =====
+function registerEntry() {
+  const plate = document.getElementById('in-plate').value.trim();
+  const weight = parseFloat(document.getElementById('in-weight-manual').value);
+  if (!plate) { alert('ナンバープレートを入力してください'); return; }
+  if (!weight || weight <= 0) { alert('入場重量を計量してください'); return; }
+  if (state.vehicles.find(v => v.plate === plate)) {
+    alert('この車両はすでに場内にあります'); return;
+  }
+  const vendor = state.vendors.find(v => v.plate === plate);
+  const id = Date.now();
+  const direction = document.getElementById('in-direction').value;
+  state.vehicles.push({
+    id,
+    plate,
+    vendor: vendor ? vendor.name : document.getElementById('in-vendor').value || '不明',
+    waste: document.getElementById('in-waste').value,
+    direction,
+    inWeight: weight,
+    inTime: new Date(),
+  });
+  document.getElementById('in-plate').value = '';
+  document.getElementById('in-weight-manual').value = '';
+  document.getElementById('in-weight-display').textContent = '0.00';
+  document.getElementById('in-alert').innerHTML = `<div class="alert alert-success">✔ 入場登録完了: ${plate}（${weight}t）</div>`;
+  setTimeout(() => document.getElementById('in-alert').innerHTML = '', 3000);
+  updateDashboard();
+  updateOutSelect();
+}
+
+// ===== 退場登録 =====
+function updateOutSelect() {
+  const sel = document.getElementById('out-vehicle');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- 場内の車両を選択 --</option>';
+  state.vehicles.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = `${v.plate}（${v.vendor}）`;
+    sel.appendChild(opt);
+  });
+  if (prev) { sel.value = prev; selectOutVehicle(); }
+  document.getElementById('out-empty').style.display = state.vehicles.length ? 'none' : 'block';
+  document.getElementById('out-info').style.display = sel.value ? 'block' : 'none';
+}
+
+function selectOutVehicle() {
+  const id = document.getElementById('out-vehicle').value;
+  if (!id) { document.getElementById('out-info').style.display = 'none'; return; }
+  const v = state.vehicles.find(x => x.id == id);
+  document.getElementById('out-info').style.display = 'block';
+  document.getElementById('out-in-weight').textContent = v.inWeight + ' t';
+  document.getElementById('out-in-time').textContent = v.inTime.toLocaleTimeString('ja-JP');
+  document.getElementById('out-waste-type').textContent = v.waste;
+  document.getElementById('net-result').style.display = 'none';
+  document.getElementById('out-weight-manual').value = '';
+  document.getElementById('out-weight-display').textContent = '0.00';
+  document.getElementById('overload-alert').innerHTML = '';
+}
+
+function registerExit() {
+  const id = document.getElementById('out-vehicle').value;
+  if (!id) return;
+  const v = state.vehicles.find(x => x.id == id);
+  const outWeight = parseFloat(document.getElementById('out-weight-manual').value);
+  if (!outWeight) { alert('退場重量を計量してください'); return; }
+  const net = parseFloat((v.inWeight - outWeight).toFixed(2));
+  if (net < 0) { alert('退場重量が入場重量を超えています。確認してください'); return; }
+  const price = state.prices[v.waste] || 15000;
+  const charge = Math.round(net * price);
+  const limit = state.settings.overloadLimit;
+  const rec = {
+    id: state.counter++,
+    plate: v.plate,
+    vendor: v.vendor,
+    waste: v.waste,
+    direction: v.direction || '受入',
+    inWeight: v.inWeight,
+    outWeight,
+    net,
+    charge,
+    inTime: v.inTime,
+    outTime: new Date(),
+    overload: net > limit,
+  };
+  state.history.unshift(rec);
+  state.vehicles = state.vehicles.filter(x => x.id != id);
+  showTicket(rec);
+  updateDashboard();
+  updateOutSelect();
+}
+
+// ===== 伝票表示 =====
+function showTicket(rec) {
+  const content = `
+受付番号: No.${String(rec.id).padStart(4,'0')}
+区　　分: ${rec.direction || '受入'}
+━━━━━━━━━━━━━━━━━━━━━━━━
+日　　付: ${rec.inTime.toLocaleDateString('ja-JP')}
+業 者 名: ${rec.vendor}
+ナンバー: ${rec.plate}
+廃棄物種別: ${rec.waste}
+━━━━━━━━━━━━━━━━━━━━━━━━
+入場時刻: ${rec.inTime.toLocaleTimeString('ja-JP')}
+退場時刻: ${rec.outTime.toLocaleTimeString('ja-JP')}
+━━━━━━━━━━━━━━━━━━━━━━━━
+入場重量: ${rec.inWeight.toFixed(2)} t
+退場重量: ${rec.outWeight.toFixed(2)} t
+正味重量: ${rec.net.toFixed(2)} t
+━━━━━━━━━━━━━━━━━━━━━━━━
+単　　価: ¥${(state.prices[rec.waste]||0).toLocaleString()} / t
+請求金額: ¥${rec.charge.toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━━━━
+${rec.overload ? '【⚠ 過積載記録あり】' : ''}
+  `.trim();
+  document.getElementById('ticket-content').textContent = content;
+  document.getElementById('ticket-modal').classList.add('show');
+}
+
+function printTicket() { window.print(); }
+
+// ===== ダッシュボード更新 =====
+function updateDashboard() {
+  const today = new Date().toLocaleDateString('ja-JP');
+  const todayRecs = state.history.filter(r => r.outTime.toLocaleDateString('ja-JP') === today);
+  const totalWeight = todayRecs.reduce((s, r) => s + r.net, 0);
+  const totalAmount = todayRecs.reduce((s, r) => s + r.charge, 0);
+  const alerts = todayRecs.filter(r => r.overload).length;
+
+  document.getElementById('today-count').textContent = todayRecs.length;
+  document.getElementById('stat-today').innerHTML = todayRecs.length + '<small>台</small>';
+  document.getElementById('stat-inside').textContent = state.vehicles.length;
+  document.getElementById('stat-weight').innerHTML = totalWeight.toFixed(1) + '<small>t</small>';
+  document.getElementById('stat-avg').textContent = todayRecs.length ? (totalWeight / todayRecs.length).toFixed(1) : 0;
+  document.getElementById('stat-alert').innerHTML = alerts + '<small>件</small>';
+  document.getElementById('stat-amount').textContent = '¥' + totalAmount.toLocaleString();
+  document.getElementById('stat-billed').textContent = todayRecs.length;
+
+  // 場内リスト
+  const ll = document.getElementById('live-list');
+  if (state.vehicles.length === 0) {
+    ll.innerHTML = '<div class="text-muted" style="text-align:center;padding:20px;font-size:13px;">場内に車両はありません</div>';
+  } else {
+    ll.innerHTML = state.vehicles.map(v => `
+      <div class="live-item">
+        <div class="live-icon">🚛</div>
+        <div class="live-info">
+          <div class="live-plate">${v.plate}</div>
+          <div class="live-sub">${v.vendor} · ${v.waste} · 入場 ${v.inTime.toLocaleTimeString('ja-JP')}</div>
+        </div>
+        <span class="badge badge-green">場内</span>
+      </div>
+    `).join('');
+  }
+
+  // 直近履歴
+  const tb = document.getElementById('recent-table');
+  if (state.history.length === 0) {
+    tb.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align:center">まだ処理がありません</td></tr>';
+  } else {
+    tb.innerHTML = state.history.slice(0, 8).map(r => `
+      <tr>
+        <td class="mono">${r.outTime.toLocaleTimeString('ja-JP')}</td>
+        <td class="mono">${r.plate}</td>
+        <td class="mono">${r.net.toFixed(2)} t</td>
+        <td><span class="badge ${r.overload ? 'badge-red' : 'badge-green'}">${r.overload ? '過積載' : '正常'}</span></td>
+      </tr>
+    `).join('');
+  }
+}
+
+// ===== 履歴レンダリング =====
+function renderHistory(filtered) {
+  const data = filtered || state.history;
+  const totalW = data.reduce((s, r) => s + r.net, 0);
+  const totalA = data.reduce((s, r) => s + r.charge, 0);
+  document.getElementById('h-count').innerHTML = data.length + '<small>件</small>';
+  document.getElementById('h-weight').innerHTML = totalW.toFixed(1) + '<small>t</small>';
+  document.getElementById('h-amount').textContent = '¥' + totalA.toLocaleString();
+
+  const tb = document.getElementById('history-table');
+  if (data.length === 0) {
+    tb.innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px">データがありません</td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(r => `
+    <tr>
+      <td class="mono">No.${String(r.id).padStart(4,'0')}</td>
+      <td class="mono">${r.outTime.toLocaleDateString('ja-JP')} ${r.outTime.toLocaleTimeString('ja-JP')}</td>
+      <td><span class="badge ${r.direction === '出荷' ? 'badge-blue' : 'badge-green'}">${r.direction || '受入'}</span></td>
+      <td class="mono">${r.plate}</td>
+      <td>${r.vendor}</td>
+      <td><span class="badge badge-blue">${r.waste}</span></td>
+      <td class="mono">${r.inWeight.toFixed(2)} t</td>
+      <td class="mono">${r.outWeight.toFixed(2)} t</td>
+      <td class="mono" style="color:var(--accent)">${r.net.toFixed(2)} t</td>
+      <td class="mono">¥${r.charge.toLocaleString()}</td>
+      <td><span class="badge ${r.overload ? 'badge-red' : 'badge-green'}">${r.overload ? '過積載' : '正常'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function filterHistory() {
+  const date = document.getElementById('filter-date').value;
+  const waste = document.getElementById('filter-waste').value;
+  let data = state.history;
+  if (date) data = data.filter(r => r.outTime.toISOString().slice(0,10) === date);
+  if (waste) data = data.filter(r => r.waste === waste);
+  renderHistory(data);
+}
+
+function exportCSV() {
+  const header = ['受付番号','日時','ナンバー','業者名','種別','入場重量','退場重量','正味重量','金額','過積載'];
+  const rows = state.history.map(r => [
+    `No.${String(r.id).padStart(4,'0')}`,
+    r.outTime.toLocaleString('ja-JP'),
+    r.plate, r.vendor, r.waste,
+    r.inWeight, r.outWeight, r.net, r.charge,
+    r.overload ? '有' : '無'
+  ]);
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `計量履歴_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.csv`;
+  a.click();
+}
+
+// ===== マスタ管理 =====
+function renderMaster() {
+  // 業者テーブル
+  const tb = document.getElementById('vendor-table');
+  tb.innerHTML = state.vendors.map((v, i) => {
+    const basePrice = state.prices[v.waste] || 0;
+    const effectivePrice = v.presidentPrice || v.salesPrice || basePrice;
+    const priceType = v.presidentPrice ? '👑社長' : v.salesPrice ? '営業' : '基本';
+    const priceColor = v.presidentPrice ? 'var(--accent2)' : v.salesPrice ? 'var(--accent)' : 'var(--text-muted)';
+    return `
+    <tr>
+      <td class="mono" style="font-size:12px;">${v.plate}</td>
+      <td>${v.name}</td>
+      <td><span class="badge badge-blue" style="font-size:10px;">${v.waste}</span></td>
+      <td class="mono" style="color:${priceColor};font-weight:600;">¥${effectivePrice.toLocaleString()}<br><span style="font-size:10px;opacity:0.7">${priceType}</span></td>
+      <td><span class="badge ${v.type === '定期' ? 'badge-green' : 'badge-yellow'}">${v.type}</span></td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="showQR(${i})">📱 QR</button>
+          <button class="btn btn-warning btn-sm" onclick="showPriceApproval(${i})">💴</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVendor(${i})">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `}).join('');
+
+  // 業者をセレクトに反映
+  const sel = document.getElementById('in-vendor');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- 選択または入力 --</option>';
+  state.vendors.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = `${v.name}（${v.plate}）`;
+    sel.appendChild(opt);
+  });
+  sel.value = prev;
+
+  // 単価リスト
+  const pl = document.getElementById('price-list');
+  pl.innerHTML = Object.entries(state.prices).map(([k, v]) => `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <label style="width:120px;font-size:13px;color:var(--text-muted)">${k}</label>
+      <input class="form-control" type="number" value="${v}" data-key="${k}" style="width:160px;" onchange="state.prices[this.dataset.key]=parseInt(this.value)">
+      <span style="color:var(--text-muted);font-size:12px">円/t</span>
+    </div>
+  `).join('');
+
+  // 設定
+  document.getElementById('overload-limit').value = state.settings.overloadLimit;
+  document.getElementById('warning-level').value = state.settings.warningLevel;
+
+  renderPriceHistory();
+}
+
+function showVendorModal() {
+  document.getElementById('vendor-modal').classList.add('show');
+}
+function closeModal() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+  stopShakenScan();
+}
+function addVendor() {
+  const plate = document.getElementById('v-plate').value.trim();
+  const name = document.getElementById('v-name').value.trim();
+  if (!plate || !name) { alert('ナンバーと業者名は必須です'); return; }
+  const waste = document.getElementById('v-waste').value;
+  const basePrice = state.prices[waste] || 0;
+  const salesPrice = parseInt(document.getElementById('v-sales-price').value) || null;
+  const presidentPrice = parseInt(document.getElementById('v-president-price').value) || null;
+  const priceNote = document.getElementById('v-price-note').value.trim();
+  const now = new Date().toLocaleString('ja-JP');
+  const vendor = {
+    plate, name,
+    model: document.getElementById('v-model').value.trim(),
+    waste,
+    price: basePrice,
+    salesPrice,
+    presidentPrice,
+    approvedBy: presidentPrice ? '社長' : salesPrice ? '営業担当' : '',
+    approvedDate: (salesPrice || presidentPrice) ? now : '',
+    priceNote,
+    type: document.getElementById('v-type').value,
+    priceHistory: [],
+  };
+  // 初期単価履歴
+  if (salesPrice || presidentPrice) {
+    vendor.priceHistory.push({
+      date: now,
+      from: basePrice,
+      to: presidentPrice || salesPrice,
+      type: presidentPrice ? '社長承認' : '営業単価',
+      approvedBy: presidentPrice ? '社長' : '営業担当',
+      note: priceNote,
+    });
+  }
+  state.vendors.push(vendor);
+  closeModal();
+  renderMaster();
+}
+function deleteVendor(index) {
+  const v = state.vendors[index];
+  if (!confirm(`「${v.name}（${v.plate}）」を削除しますか？`)) return;
+  state.vendors.splice(index, 1);
+  renderMaster();
+}
+
+function savePrices() {
+  renderMaster();
+  alert('単価を保存しました');
+}
+
+// ===== 単価承認モーダル =====
+let currentPriceVendorIndex = null;
+
+function showPriceApproval(index) {
+  currentPriceVendorIndex = index;
+  const v = state.vendors[index];
+  const basePrice = state.prices[v.waste] || 0;
+  const effectivePrice = v.presidentPrice || v.salesPrice || basePrice;
+  const priceType = v.presidentPrice ? '社長承認' : v.salesPrice ? '営業単価' : '基本単価';
+
+  document.getElementById('price-modal-vendor-info').innerHTML = `
+    <div class="flex-between">
+      <span><strong>${v.name}</strong>（${v.plate}）</span>
+      <span class="badge badge-blue">${v.waste}</span>
+    </div>
+    ${v.approvedDate ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted);">最終承認: ${v.approvedDate}　承認者: ${v.approvedBy}</div>` : ''}
+    ${v.priceNote ? `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);">備考: ${v.priceNote}</div>` : ''}
+  `;
+  document.getElementById('pm-base').textContent = '¥' + basePrice.toLocaleString();
+  document.getElementById('pm-sales').textContent = v.salesPrice ? '¥' + v.salesPrice.toLocaleString() : '未設定';
+  document.getElementById('pm-president').textContent = v.presidentPrice ? '¥' + v.presidentPrice.toLocaleString() : '未承認';
+  document.getElementById('pm-effective').textContent = `¥${effectivePrice.toLocaleString()}（${priceType}）`;
+  document.getElementById('pm-new-sales').value = '';
+  document.getElementById('pm-new-president').value = '';
+  document.getElementById('pm-note').value = '';
+
+  // 単価履歴
+  const histEl = document.getElementById('pm-history');
+  if (v.priceHistory && v.priceHistory.length > 0) {
+    histEl.innerHTML = `
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;">変更履歴</div>
+      <div style="max-height:150px;overflow-y:auto;">
+        <table style="font-size:12px;width:100%;">
+          <thead><tr><th>日時</th><th>変更前</th><th>変更後</th><th>種別</th><th>承認者</th></tr></thead>
+          <tbody>
+            ${v.priceHistory.slice().reverse().map(h => `
+              <tr>
+                <td>${h.date}</td>
+                <td class="mono">¥${h.from.toLocaleString()}</td>
+                <td class="mono" style="color:var(--accent)">¥${h.to.toLocaleString()}</td>
+                <td><span class="badge ${h.type === '社長承認' ? 'badge-yellow' : 'badge-blue'}">${h.type}</span></td>
+                <td>${h.approvedBy}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    histEl.innerHTML = '';
+  }
+
+  document.getElementById('price-modal').classList.add('show');
+}
+
+function savePriceApproval() {
+  const v = state.vendors[currentPriceVendorIndex];
+  const basePrice = state.prices[v.waste] || 0;
+  const newSales = parseInt(document.getElementById('pm-new-sales').value) || null;
+  const newPresident = parseInt(document.getElementById('pm-new-president').value) || null;
+  const note = document.getElementById('pm-note').value.trim();
+  const now = new Date().toLocaleString('ja-JP');
+
+  if (!newSales && !newPresident) {
+    alert('営業単価または社長承認単価を入力してください');
+    return;
+  }
+
+  const oldEffective = v.presidentPrice || v.salesPrice || basePrice;
+
+  if (newSales) {
+    v.priceHistory.push({
+      date: now, from: v.salesPrice || basePrice, to: newSales,
+      type: '営業単価', approvedBy: '営業担当', note
+    });
+    v.salesPrice = newSales;
+  }
+  if (newPresident) {
+    v.priceHistory.push({
+      date: now, from: oldEffective, to: newPresident,
+      type: '社長承認', approvedBy: '社長', note
+    });
+    v.presidentPrice = newPresident;
+    v.approvedBy = '社長';
+    v.approvedDate = now;
+  }
+  v.priceNote = note || v.priceNote;
+
+  closeModal();
+  renderMaster();
+  renderPriceHistory();
+}
+
+function renderPriceHistory() {
+  const tb = document.getElementById('price-history-table');
+  if (!tb) return;
+  const allHistory = [];
+  state.vendors.forEach(v => {
+    (v.priceHistory || []).forEach(h => {
+      allHistory.push({ ...h, vendorName: v.name });
+    });
+  });
+  if (allHistory.length === 0) {
+    tb.innerHTML = '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:20px;">単価変更の履歴がありません</td></tr>';
+    return;
+  }
+  allHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+  tb.innerHTML = allHistory.map(h => `
+    <tr>
+      <td class="mono" style="font-size:12px;">${h.date}</td>
+      <td>${h.vendorName}</td>
+      <td class="mono">¥${h.from.toLocaleString()}</td>
+      <td class="mono" style="color:var(--accent);">¥${h.to.toLocaleString()}</td>
+      <td><span class="badge ${h.type === '社長承認' ? 'badge-yellow' : 'badge-blue'}">${h.type}</span></td>
+      <td>${h.approvedBy}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${h.note || '-'}</td>
+    </tr>
+  `).join('');
+}
+function saveSettings() {
+  state.settings.overloadLimit = parseFloat(document.getElementById('overload-limit').value);
+  state.settings.warningLevel = parseFloat(document.getElementById('warning-level').value);
+  document.getElementById('settings-alert').innerHTML = '<div class="alert alert-success">✔ 設定を保存しました</div>';
+  setTimeout(() => document.getElementById('settings-alert').innerHTML = '', 2500);
+}
+
+// ===== QRコード生成・表示 =====
+function showQR(index) {
+  const v = state.vendors[index];
+  // 日本語を含まないシンプルな形式でエンコード
+  // plate をキーとして、読み取り後にマスタから検索する方式
+  const data = `TRUCK:${v.plate}`;
+  document.getElementById('qr-display-info').textContent = `${v.name}（${v.plate}）`;
+  const container = document.getElementById('qr-code-img');
+  container.innerHTML = '';
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(data, 'Byte');
+    qr.make();
+    container.innerHTML = qr.createSvgTag(6, 10);
+  } catch(e) {
+    container.innerHTML = `<div style="padding:16px;background:#fff;color:#000;font-family:monospace;font-size:11px;border:2px solid #000;border-radius:4px;">
+      <div style="font-weight:bold;margin-bottom:8px;">📋 手動確認用</div>
+      <div>ナンバー: ${v.plate}</div>
+      <div>業者名: ${v.name}</div>
+    </div>`;
+  }
+  document.getElementById('qr-modal').classList.add('show');
+}
+
+function printQR() {
+  const content = document.getElementById('qr-code-img').innerHTML;
+  const info = document.getElementById('qr-display-info').textContent;
+  const w = window.open('', '_blank');
+  w.document.write(`<html><body style="text-align:center;font-family:sans-serif;padding:40px">
+    <h2 style="margin-bottom:8px">計量管理システム</h2>
+    <p style="color:#666;margin-bottom:20px">${info}</p>
+    ${content}
+    <p style="margin-top:16px;font-size:12px;color:#999">このQRコードをスケール受付でご提示ください</p>
+  </body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 500);
+}
+
+// 初期化
+renderMaster();
+updateDashboard();
+updateWasteOptions();
+
+// ===== QRスキャン =====
+let qrStream = null;
+let qrInterval = null;
+
+function startQRScan() {
+  const area = document.getElementById('qr-scan-area');
+  area.style.display = 'block';
+  const video = document.getElementById('qr-video');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      qrStream = stream;
+      video.srcObject = stream;
+      video.play();
+      qrInterval = setInterval(() => scanFrame(), 300);
+    })
+    .catch(() => {
+      area.style.display = 'none';
+      alert('カメラへのアクセスが許可されていません。\nブラウザの設定でカメラを許可してください。');
+    });
+}
+
+function scanFrame() {
+  const video = document.getElementById('qr-video');
+  const canvas = document.getElementById('qr-canvas');
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  if (typeof jsQR === 'undefined') {
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      detector.detect(canvas).then(codes => {
+        if (codes.length > 0) { stopQRScan(); applyQRData(codes[0].rawValue); }
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+  if (code) { stopQRScan(); applyQRData(code.data); }
+}
+
+function stopQRScan() {
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
+  document.getElementById('qr-scan-area').style.display = 'none';
+}
+
+function applyQRData(raw) {
+  try {
+    let plate = '', vendorName = '', waste = '';
+
+    // 新形式: TRUCK:ナンバー
+    if (raw.startsWith('TRUCK:')) {
+      plate = raw.replace('TRUCK:', '').trim();
+      const vendor = state.vendors.find(v => v.plate === plate);
+      if (vendor) { vendorName = vendor.name; waste = vendor.waste; }
+    } else {
+      // 旧JSON形式（後方互換）
+      try {
+        const d = JSON.parse(raw);
+        plate = d.plate || ''; vendorName = d.name || ''; waste = d.waste || '';
+      } catch { plate = raw.trim(); }
+    }
+
+    if (!plate) throw new Error();
+
+    document.getElementById('in-plate').value = plate;
+    if (waste) document.getElementById('in-waste').value = waste;
+    const sel = document.getElementById('in-vendor');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].textContent.includes(vendorName)) { sel.selectedIndex = i; break; }
+    }
+    const msg = vendorName ? `${vendorName}（${plate}）` : plate;
+    document.getElementById('qr-result-msg').innerHTML =
+      `<div class="alert alert-success">✔ QR読取成功: ${msg}</div>`;
+    setTimeout(() => document.getElementById('qr-result-msg').innerHTML = '', 3000);
+  } catch {
+    document.getElementById('qr-result-msg').innerHTML =
+      `<div class="alert alert-danger">⚠ QRコードを認識できませんでした</div>`;
+    setTimeout(() => document.getElementById('qr-result-msg').innerHTML = '', 3000);
+  }
+}
+
+// ===== 車検証QRスキャン =====
+let shakenStream = null;
+let shakenInterval = null;
+
+function startShakenScan() {
+  const area = document.getElementById('shaken-scan-area');
+  area.style.display = 'block';
+  document.getElementById('shaken-scan-btn').style.display = 'none';
+
+  // モーダルを一番上にスクロール（カメラ映像が見えるように）
+  const modal = area.closest('.modal');
+  if (modal) modal.scrollTop = 0;
+
+  const video = document.getElementById('shaken-video');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      shakenStream = stream;
+      video.srcObject = stream;
+      video.play();
+      shakenInterval = setInterval(() => scanShakenFrame(), 300);
+    })
+    .catch(() => {
+      stopShakenScan();
+      alert('カメラへのアクセスが許可されていません。\nブラウザの設定でカメラを許可してください。');
+    });
+}
+
+function stopShakenScan() {
+  if (shakenStream) { shakenStream.getTracks().forEach(t => t.stop()); shakenStream = null; }
+  if (shakenInterval) { clearInterval(shakenInterval); shakenInterval = null; }
+  const area = document.getElementById('shaken-scan-area');
+  const btn = document.getElementById('shaken-scan-btn');
+  if (area) area.style.display = 'none';
+  if (btn) btn.style.display = 'block';
+}
+
+function scanShakenFrame() {
+  const video = document.getElementById('shaken-video');
+  const canvas = document.getElementById('shaken-canvas');
+  if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // jsQRが使えない場合はBarcodeDetector APIを試みる
+  if (typeof jsQR === 'undefined') {
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      detector.detect(canvas).then(codes => {
+        if (codes.length > 0) {
+          stopShakenScan();
+          applyShakenQR(codes[0].rawValue);
+        }
+      }).catch(() => {});
+    } else {
+      // どちらも使えない場合はインジケーターを表示
+      stopShakenScan();
+      const raw = prompt('QRコードの読み取りに対応していないブラウザです。\nナンバープレートを手動で入力してください。');
+      if (raw) applyShakenQR(raw);
+    }
+    return;
+  }
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+  if (code) {
+    stopShakenScan();
+    applyShakenQR(code.data);
+  }
+}
+
+function applyShakenQR(raw) {
+  const msgEl = document.getElementById('shaken-result-msg');
+  let plate = '', carName = '';
+
+  // ① JSON形式（自社QR等）
+  try {
+    const j = JSON.parse(raw);
+    plate = j.plate || j.登録番号 || j.number || '';
+    carName = j.carName || j.車名 || j.name || '';
+  } catch {}
+
+  // ② 新車検証テキスト形式（タブ・改行区切り）
+  if (!plate) {
+    // ナンバープレートパターン: 例「福島 100 あ 1234」
+    const plateMatch = raw.match(/([一-龠]{2,3})\s*(\d{1,3})\s*([あ-んア-ン])\s*(\d{1,4})/);
+    if (plateMatch) plate = `${plateMatch[1]} ${plateMatch[2]} ${plateMatch[3]} ${plateMatch[4]}`;
+    // 車名
+    const carMatch = raw.match(/車名[：:\s]*([^\n\t,，]+)/);
+    if (carMatch) carName = carMatch[1].trim();
+    const modelMatch = raw.match(/型式[：:\s]*([^\n\t,，]+)/);
+    if (modelMatch && !carName) carName = modelMatch[1].trim();
+  }
+
+  if (!plate) {
+    const preview = raw.length > 80 ? raw.slice(0, 80) + '...' : raw;
+    msgEl.innerHTML = `<div class="alert alert-warning">⚠ ナンバーを自動認識できませんでした。手動で入力してください。<br><small style="word-break:break-all;color:var(--text-muted)">${preview}</small></div>`;
+    return;
+  }
+
+  document.getElementById('v-plate').value = plate;
+  if (carName) document.getElementById('v-model').value = carName;
+  msgEl.innerHTML = `<div class="alert alert-success">✔ 読取成功！ナンバー「${plate}」を自動入力しました<br><small>業者名・単価・区分を入力して登録してください</small></div>`;
+}
+
+function showVendorModal() {
+  ['v-plate','v-model','v-name','v-sales-price','v-president-price','v-price-note'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('shaken-result-msg').innerHTML = '';
+  document.getElementById('v-effective-price-display').style.display = 'none';
+  stopShakenScan();
+
+  // 廃棄物種別変更時に基本単価を自動更新
+  const wasteEl = document.getElementById('v-waste');
+  const updateBase = () => {
+    const base = state.prices[wasteEl.value] || 0;
+    document.getElementById('v-base-price').value = '¥' + base.toLocaleString() + ' / t';
+    updateEffectivePrice();
+  };
+  wasteEl.onchange = updateBase;
+  updateBase();
+
+  ['v-sales-price','v-president-price'].forEach(id => {
+    document.getElementById(id).oninput = updateEffectivePrice;
+  });
+
+  document.getElementById('vendor-modal').classList.add('show');
+}
+
+function updateEffectivePrice() {
+  const waste = document.getElementById('v-waste').value;
+  const base = state.prices[waste] || 0;
+  const sales = parseInt(document.getElementById('v-sales-price').value) || null;
+  const president = parseInt(document.getElementById('v-president-price').value) || null;
+  const effective = president || sales || base;
+  const type = president ? '社長承認単価が適用されます' : sales ? '営業単価が適用されます' : '基本単価が適用されます';
+  if (sales || president) {
+    document.getElementById('v-effective-price-display').style.display = 'block';
+    document.getElementById('v-effective-price-val').textContent = '¥' + effective.toLocaleString() + ' / t';
+    document.getElementById('v-effective-price-note').textContent = '　' + type;
+  } else {
+    document.getElementById('v-effective-price-display').style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>
