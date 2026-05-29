@@ -481,7 +481,7 @@
         <!-- QRスキャンエリア -->
         <div id="qr-scan-area" style="display:none;margin-bottom:16px;">
           <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;">
-            <video id="qr-video" style="width:100%;display:block;" playsinline></video>
+            <video id="qr-video" style="width:100%;display:block;" playsinline muted autoplay></video>
             <canvas id="qr-canvas" style="display:none;"></canvas>
             <div style="position:absolute;inset:0;border:2px solid var(--accent);border-radius:8px;pointer-events:none;">
               <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;height:60%;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);"></div>
@@ -714,7 +714,7 @@
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;font-weight:600;letter-spacing:0.05em;">📋 車検証QRコードから自動入力</div>
       <div id="shaken-scan-area" style="display:none;margin-bottom:10px;">
         <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;">
-          <video id="shaken-video" style="width:100%;display:block;height:200px;object-fit:cover;" playsinline></video>
+          <video id="shaken-video" style="width:100%;display:block;height:200px;object-fit:cover;" playsinline muted autoplay></video>
           <canvas id="shaken-canvas" style="display:none;"></canvas>
           <div style="position:absolute;inset:0;pointer-events:none;">
             <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:60%;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);"></div>
@@ -1523,19 +1523,38 @@ let qrStream = null;
 let qrInterval = null;
 
 function startQRScan() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const isHttp = location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '';
+    alert(isHttp
+      ? 'カメラ機能はHTTPS環境が必要です。\nナンバーを手動で入力してください。'
+      : 'このブラウザはカメラに対応していません。\nナンバーを手動で入力してください。');
+    return;
+  }
   const area = document.getElementById('qr-scan-area');
   area.style.display = 'block';
   const video = document.getElementById('qr-video');
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+  })
     .then(stream => {
       qrStream = stream;
       video.srcObject = stream;
-      video.play();
+      return video.play();
+    })
+    .then(() => {
       qrInterval = setInterval(() => scanFrame(), 300);
     })
-    .catch(() => {
-      area.style.display = 'none';
-      alert('カメラへのアクセスが許可されていません。\nブラウザの設定でカメラを許可してください。');
+    .catch(err => {
+      stopQRScan();
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        alert('カメラへのアクセスが拒否されました。\nブラウザのアドレスバー横の🔒アイコンからカメラを許可してください。');
+      } else if (err.name === 'NotFoundError') {
+        alert('カメラが見つかりません。\nデバイスにカメラが搭載されているか確認してください。');
+      } else if (err.name === 'NotReadableError') {
+        alert('カメラが他のアプリで使用中です。\n他のアプリを閉じてからお試しください。');
+      } else {
+        alert('カメラを起動できませんでした: ' + (err.message || err.name));
+      }
     });
 }
 
@@ -1610,25 +1629,44 @@ let shakenStream = null;
 let shakenInterval = null;
 
 function startShakenScan() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const isHttp = location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '';
+    alert(isHttp
+      ? 'カメラ機能はHTTPS環境が必要です。\nナンバーを手動で入力してください。'
+      : 'このブラウザはカメラに対応していません。\nナンバーを手動で入力してください。');
+    return;
+  }
+
   const area = document.getElementById('shaken-scan-area');
   area.style.display = 'block';
   document.getElementById('shaken-scan-btn').style.display = 'none';
 
-  // モーダルを一番上にスクロール（カメラ映像が見えるように）
   const modal = area.closest('.modal');
   if (modal) modal.scrollTop = 0;
 
   const video = document.getElementById('shaken-video');
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+  })
     .then(stream => {
       shakenStream = stream;
       video.srcObject = stream;
-      video.play();
+      return video.play();
+    })
+    .then(() => {
       shakenInterval = setInterval(() => scanShakenFrame(), 300);
     })
-    .catch(() => {
+    .catch(err => {
       stopShakenScan();
-      alert('カメラへのアクセスが許可されていません。\nブラウザの設定でカメラを許可してください。');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        alert('カメラへのアクセスが拒否されました。\nブラウザのアドレスバー横の🔒アイコンからカメラを許可してください。');
+      } else if (err.name === 'NotFoundError') {
+        alert('カメラが見つかりません。\nデバイスにカメラが搭載されているか確認してください。');
+      } else if (err.name === 'NotReadableError') {
+        alert('カメラが他のアプリで使用中です。\n他のアプリを閉じてからお試しください。');
+      } else {
+        alert('カメラを起動できませんでした: ' + (err.message || err.name));
+      }
     });
 }
 
