@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚖ 計量管理システム - 自社QR専用版</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <header>
+            <h1>⚖ 計量管理システム</h1>
+            <p>自社QR専用版</p>
+        </header>
+        
+        <!-- この版の特徴 -->
+        <div class="feature-box">
+            <h3>📋 この版の特徴</h3>
+            <p>
+                車検証QRは使用しません。マスタ登録した車両ごとに、このシステム専用のQRコードを発行し、入場時に読み取ります。
+                QRには車両ナンバーだけを保存し、業者名・品目は登録済みマスタから呼び出します。
+            </p>
+        </div>
+        
+        <!-- ナビゲーション -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="entrance">🚛 入場受付</button>
+            <button class="nav-tab" data-tab="master">🗂 業者・車両マスタ</button>
+            <button class="nav-tab" data-tab="records">📊 本日の入場記録</button>
+        </div>
+        
+        <!-- タブコンテンツ -->
+        <div class="tabs-container">
+            <!-- 入場受付タブ -->
+            <div id="entrance" class="tab-content active">
+                <div class="section">
+                    <h2><span class="icon">🚛</span>入場受付</h2>
+                    
+                    <div class="qr-input-section">
+                        <label for="qrInput">📷 自社QRを読み取る（またはナンバーを入力）</label>
+                        <input 
+                            type="text" 
+                            id="qrInput" 
+                            placeholder="QRコードを読み取るか、車両ナンバーを入力してください"
+                            class="input-box"
+                        >
+                    </div>
+                    
+                    <div class="vehicle-info">
+                        <div class="info-row">
+                            <span class="label">車両ナンバー:</span>
+                            <span class="value" id="displayNumber">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">業者名:</span>
+                            <span class="value" id="displayCompany">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">品目:</span>
+                            <span class="value" id="displayItem">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-section">
+                        <div class="input-field">
+                            <label for="entranceWeight">入場重量（t）<span class="required">*</span></label>
+                            <input 
+                                type="number" 
+                                id="entranceWeight" 
+                                placeholder="0.00" 
+                                step="0.01" 
+                                min="0"
+                                class="input-box"
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="entranceBtn" class="btn-primary" disabled>入場登録</button>
+                        <button id="clearEntranceBtn" class="btn-secondary">クリア</button>
+                    </div>
+                    
+                    <div id="entranceMessage" class="message"></div>
+                </div>
+            </div>
+            
+            <!-- 業者・車両マスタタブ -->
+            <div id="master" class="tab-content">
+                <div class="section">
+                    <h2><span class="icon">🗂</span>業者・車両マスタ</h2>
+                    
+                    <div class="master-form">
+                        <div class="input-field">
+                            <label for="masterNumber">車両ナンバー<span class="required">*</span></label>
+                            <input 
+                                type="text" 
+                                id="masterNumber" 
+                                placeholder="例：ABC123"
+                                class="input-box"
+                            >
+                        </div>
+                        
+                        <div class="input-field">
+                            <label for="masterCompany">業者名<span class="required">*</span></label>
+                            <input 
+                                type="text" 
+                                id="masterCompany" 
+                                placeholder="業者名を入力"
+                                class="input-box"
+                            >
+                        </div>
+                        
+                        <div class="input-field">
+                            <label for="masterItem">標準品目<span class="required">*</span></label>
+                            <select id="masterItem" class="input-box">
+                                <option value="">選択してください</option>
+                                <option value="砂利">砂利</option>
+                                <option value="砂">砂</option>
+                                <option value="セメント">セメント</option>
+                                <option value="コンクリート">コンクリート</option>
+                                <option value="その他">その他</option>
+                            </select>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button id="masterRegisterBtn" class="btn-primary">登録・更新</button>
+                            <button id="masterClearBtn" class="btn-secondary">クリア</button>
+                        </div>
+                        
+                        <div id="masterMessage" class="message"></div>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px; color: #2c3e50; font-size: 16px;">登録済み車両</h3>
+                    <div class="table-container">
+                        <table id="masterTable">
+                            <thead>
+                                <tr>
+                                    <th>ナンバー</th>
+                                    <th>業者名</th>
+                                    <th>品目</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="empty-row">
+                                    <td colspan="4" style="text-align: center; color: #999;">登録データがありません</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 本日の入場記録タブ -->
+            <div id="records" class="tab-content">
+                <div class="section">
+                    <h2>📊 本日の入場記録</h2>
+                    
+                    <div class="records-controls">
+                        <button id="exportBtn" class="btn-secondary">📥 CSVエクスポート</button>
+                        <button id="clearRecordsBtn" class="btn-secondary">🗑 記録をクリア</button>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table id="recordsTable">
+                            <thead>
+                                <tr>
+                                    <th>時刻</th>
+                                    <th>ナンバー</th>
+                                    <th>業者名</th>
+                                    <th>品目</th>
+                                    <th>重量(t)</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="empty-row">
+                                    <td colspan="6" style="text-align: center; color: #999;">本日の入場記録がありません</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- モーダル -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>車両情報を編集</h2>
+            
+            <div class="input-field">
+                <label for="editNumber">車両ナンバー<span class="required">*</span></label>
+                <input type="text" id="editNumber" class="input-box" disabled>
+            </div>
+            
+            <div class="input-field">
+                <label for="editCompany">業者名<span class="required">*</span></label>
+                <input type="text" id="editCompany" class="input-box">
+            </div>
+            
+            <div class="input-field">
+                <label for="editItem">標準品目<span class="required">*</span></label>
+                <select id="editItem" class="input-box">
+                    <option value="">選択してください</option>
+                    <option value="砂利">砂利</option>
+                    <option value="砂">砂</option>
+                    <option value="セメント">セメント</option>
+                    <option value="コンクリート">コンクリート</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            
+            <div class="button-group">
+                <button id="editSaveBtn" class="btn-primary">保存</button>
+                <button id="editCancelBtn" class="btn-secondary">キャンセル</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
