@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>計量管理システム（iPhone対応）</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f1117}
+iframe{border:0;width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+<iframe id="app" src="truck-scale-system.html" allow="camera; autoplay" title="計量管理システム"></iframe>
+<script>
+(function(){
+  const frame=document.getElementById('app');
+  frame.addEventListener('load',()=>{
+    const w=frame.contentWindow;
+    const d=frame.contentDocument;
+    if(!w||!d) return;
+
+    let scanning=false;
+    let lastScan=0;
+
+    function showScanHint(text){
+      const el=d.getElementById('qr-result-msg');
+      if(el) el.innerHTML='<div class="alert alert-warning">'+text+'</div>';
+    }
+
+    async function detectWithBarcodeDetector(canvas){
+      if(!('BarcodeDetector' in w)) return null;
+      try{
+        const detector=new w.BarcodeDetector({formats:['qr_code']});
+        const codes=await detector.detect(canvas);
+        return codes&&codes.length?codes[0].rawValue:null;
+      }catch(e){return null;}
+    }
+
+    function detectWithJsQR(ctx,width,height){
+      if(typeof w.jsQR==='undefined') return null;
+      try{
+        const img=ctx.getImageData(0,0,width,height);
+        let code=w.jsQR(img.data,width,height,{inversionAttempts:'attemptBoth'});
+        if(code&&code.data) return code.data;
+
+        const side=Math.floor(Math.min(width,height)*0.82);
+        const sx=Math.floor((width-side)/2);
+        const sy=Math.floor((height-side)/2);
+        const crop=ctx.getImageData(sx,sy,side,side);
+        code=w.jsQR(crop.data,side,side,{inversionAttempts:'attemptBoth'});
+        return code&&code.data?code.data:null;
+      }catch(e){return null;}
+    }
+
+    w.scanFrame=async function(){
+      if(scanning) return;
+      const now=Date.now();
+      if(now-lastScan<180) return;
+      lastScan=now;
+
+      const video=d.getElementById('qr-video');
+      const canvas=d.getElementById('qr-canvas');
+      if(!video||!canvas||video.readyState<2||!video.videoWidth||!video.videoHeight) return;
+
+      scanning=true;
+      try{
+        const maxWidth=960;
+        const scale=Math.min(1,maxWidth/video.videoWidth);
+        canvas.width=Math.max(320,Math.round(video.videoWidth*scale));
+        canvas.height=Math.max(240,Math.round(video.videoHeight*scale));
+        const ctx=canvas.getContext('2d',{willReadFrequently:true});
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+        let raw=await detectWithBarcodeDetector(canvas);
+        if(!raw) raw=detectWithJsQR(ctx,canvas.width,canvas.height);
+
+        if(raw){
+          w.stopQRScan();
+          w.applyQRData(raw);
+          return;
+        }
+      }finally{
+        scanning=false;
+      }
+    };
+
+    const originalStart=w.startQRScan;
+    if(typeof originalStart==='function'){
+      w.startQRScan=function(){
+        showScanHint('QRコードを枠いっぱいに映し、2～3秒静止してください');
+        return originalStart.apply(this,arguments);
+      };
+    }
+  });
+})();
+</script>
+</body>
+</html>
