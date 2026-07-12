@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>計量管理システム｜自社QR専用版</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#222638;--border:#2e3347;--accent:#00d4aa;--danger:#ff5b5b;--text:#eef1f7;--muted:#8990a6;--radius:10px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif;font-size:14px}.header{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;justify-content:space-between;align-items:center}.header strong{font-size:17px}.tag{font-size:11px;background:rgba(0,212,170,.12);color:var(--accent);padding:4px 8px;border-radius:999px}.main{max-width:1050px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}.title{font-weight:700;margin-bottom:14px}.note{color:var(--muted);font-size:12px;line-height:1.7}.form-group{margin-bottom:12px}.label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.input,.select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px 12px;border-radius:7px;font-size:14px}.btn{border:0;border-radius:7px;padding:10px 14px;font-weight:700;cursor:pointer}.btn-primary{background:var(--accent);color:#001b16}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}.btn-danger{background:var(--danger);color:white}.btn-block{width:100%}.row{display:flex;gap:8px}.row>*{flex:1}.scan-area{display:none;margin-bottom:12px}.video-wrap{position:relative;background:#000;border-radius:8px;overflow:hidden}.video-wrap video{display:block;width:100%;max-height:330px;object-fit:cover}.frame{position:absolute;inset:12%;border:3px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}.msg{margin-top:10px;padding:10px;border-radius:7px;display:none}.ok{display:block;background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.35);color:var(--accent)}.ng{display:block;background:rgba(255,91,91,.12);border:1px solid rgba(255,91,91,.35);color:#ff8585}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border)}th{color:var(--muted);font-size:11px}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions .btn{padding:6px 9px;font-size:12px}.qrbox{background:#fff;padding:16px;border-radius:8px;display:inline-block}.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:30;align-items:center;justify-content:center;padding:16px}.modal-bg.show{display:flex}.modal{width:440px;max-width:100%;max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}.small{font-size:12px;color:var(--muted)}@media(max-width:720px){.grid{grid-template-columns:1fr}.header{align-items:flex-start;gap:8px}.row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header"><strong>⚖ 計量管理システム</strong><span class="tag">自社QR専用版</span></div>
+<div class="main">
+  <div class="card">
+    <div class="title">この版の特徴</div>
+    <div class="note">車検証QRは使用しません。マスタ登録した車両ごとに、このシステム専用のQRコードを発行し、入場時に読み取ります。QRには車両ナンバーだけを保存し、業者名・品目は登録済みマスタから呼び出します。</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="title">🚛 入場受付</div>
+      <div id="scan-area" class="scan-area">
+        <div class="video-wrap">
+          <video id="video" playsinline muted autoplay></video>
+          <canvas id="canvas" style="display:none"></canvas>
+          <div class="frame"></div>
+        </div>
+        <button class="btn btn-secondary btn-block" style="margin-top:8px" onclick="stopScan()">スキャン停止</button>
+      </div>
+      <button id="scan-btn" class="btn btn-primary btn-block" onclick="startScan()">📷 自社QRを読み取る</button>
+      <div id="scan-msg" class="msg"></div>
+      <div class="form-group" style="margin-top:14px"><label class="label">車両ナンバー</label><input id="entry-plate" class="input" placeholder="QR読取または手入力"></div>
+      <div class="form-group"><label class="label">業者名</label><input id="entry-vendor" class="input" readonly></div>
+      <div class="form-group"><label class="label">品目</label><input id="entry-item" class="input" readonly></div>
+      <div class="form-group"><label class="label">入場重量（t）</label><input id="entry-weight" class="input" type="number" step="0.01" placeholder="例 8.45"></div>
+      <button class="btn btn-primary btn-block" onclick="registerEntry()">入場登録</button>
+      <div id="entry-msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">🗂 業者・車両マスタ</div>
+      <div class="form-group"><label class="label">車両ナンバー *</label><input id="m-plate" class="input" placeholder="福島 100 あ 1234"></div>
+      <div class="form-group"><label class="label">業者名 *</label><input id="m-vendor" class="input" placeholder="株式会社〇〇"></div>
+      <div class="form-group"><label class="label">標準品目</label><input id="m-item" class="input" placeholder="一般廃棄物"></div>
+      <button class="btn btn-primary btn-block" onclick="saveMaster()">登録・更新</button>
+      <div id="master-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">登録済み車両</div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>ナンバー</th><th>業者名</th><th>品目</th><th>操作</th></tr></thead><tbody id="master-table"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">本日の入場記録</div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>時刻</th><th>ナンバー</th><th>業者名</th><th>品目</th><th>重量</th></tr></thead><tbody id="entry-table"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div id="qr-modal" class="modal-bg">
+  <div class="modal">
+    <div class="title">自社発行QRコード</div>
+    <div id="qr-info" style="margin-bottom:12px"></div>
+    <div id="qr-code" class="qrbox"></div>
+    <div class="small" style="margin:12px 0">このQRを印刷し、対象車両または運転手へ渡してください。</div>
+    <div class="row"><button class="btn btn-secondary" onclick="closeQR()">閉じる</button><button class="btn btn-primary" onclick="printQR()">印刷</button></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='truckScaleOwnQrV1';
+let data=loadData();
+let stream=null, timer=null, currentQRHtml='';
+
+function loadData(){
+  try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));if(saved)return saved;}catch(e){}
+  return {masters:[
+    {plate:'福島100あ1234',vendor:'鈴木運送',item:'一般廃棄物'},
+    {plate:'福島200い5678',vendor:'田中産業',item:'産業廃棄物'}
+  ],entries:[]};
+}
+function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
+function normalizePlate(v){return String(v||'').replace(/[\s　-]/g,'').toUpperCase();}
+function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function showMsg(id,text,type='ok'){const el=document.getElementById(id);el.className='msg '+type;el.textContent=text;setTimeout(()=>{el.className='msg';el.textContent='';},3500);}
+
+function render(){
+  const mt=document.getElementById('master-table');
+  mt.innerHTML=data.masters.length?data.masters.map((m,i)=>`<tr><td>${escapeHtml(m.plate)}</td><td>${escapeHtml(m.vendor)}</td><td>${escapeHtml(m.item)}</td><td><div class="actions"><button class="btn btn-secondary" onclick="showQR(${i})">QR表示</button><button class="btn btn-danger" onclick="removeMaster(${i})">削除</button></div></td></tr>`).join(''):'<tr><td colspan="4" class="small">登録がありません</td></tr>';
+  const today=new Date().toLocaleDateString('ja-JP');
+  const rows=data.entries.filter(e=>new Date(e.time).toLocaleDateString('ja-JP')===today);
+  document.getElementById('entry-table').innerHTML=rows.length?rows.slice().reverse().map(e=>`<tr><td>${new Date(e.time).toLocaleTimeString('ja-JP')}</td><td>${escapeHtml(e.plate)}</td><td>${escapeHtml(e.vendor)}</td><td>${escapeHtml(e.item)}</td><td>${Number(e.weight).toFixed(2)} t</td></tr>`).join(''):'<tr><td colspan="5" class="small">本日の入場記録はありません</td></tr>';
+}
+
+function saveMaster(){
+  const plate=document.getElementById('m-plate').value.trim();
+  const vendor=document.getElementById('m-vendor').value.trim();
+  const item=document.getElementById('m-item').value.trim();
+  if(!plate||!vendor){showMsg('master-msg','車両ナンバーと業者名を入力してください','ng');return;}
+  const key=normalizePlate(plate);const found=data.masters.find(m=>normalizePlate(m.plate)===key);
+  if(found){found.plate=plate;found.vendor=vendor;found.item=item;}else{data.masters.push({plate,vendor,item});}
+  persist();render();['m-plate','m-vendor','m-item'].forEach(id=>document.getElementById(id).value='');
+  showMsg('master-msg',found?'登録内容を更新しました':'車両を登録しました');
+}
+function removeMaster(i){if(!confirm('この車両を削除しますか？'))return;data.masters.splice(i,1);persist();render();}
+
+function showQR(i){
+  const m=data.masters[i];const payload='TRUCK:'+normalizePlate(m.plate);
+  const qr=qrcode(0,'M');qr.addData(payload,'Byte');qr.make();currentQRHtml=qr.createSvgTag(7,10);
+  document.getElementById('qr-info').textContent=`${m.vendor}（${m.plate}）`;
+  document.getElementById('qr-code').innerHTML=currentQRHtml;
+  document.getElementById('qr-modal').classList.add('show');
+}
+function closeQR(){document.getElementById('qr-modal').classList.remove('show');}
+function printQR(){
+  const info=document.getElementById('qr-info').textContent;const w=window.open('','_blank');
+  w.document.write(`<html><meta charset="UTF-8"><body style="text-align:center;font-family:sans-serif;padding:35px"><h2>計量管理システム 自社QR</h2><p>${escapeHtml(info)}</p>${currentQRHtml}<p>受付時にこのQRコードを提示してください</p></body></html>`);w.document.close();setTimeout(()=>w.print(),400);
+}
+
+async function startScan(){
+  if(!navigator.mediaDevices?.getUserMedia){showMsg('scan-msg',location.protocol==='https:'?'このブラウザはカメラに対応していません':'カメラ利用にはHTTPS環境が必要です','ng');return;}
+  try{
+    document.getElementById('scan-area').style.display='block';document.getElementById('scan-btn').style.display='none';
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    const video=document.getElementById('video');video.srcObject=stream;await video.play();timer=setInterval(scanFrame,250);
+  }catch(e){stopScan();showMsg('scan-msg','カメラを起動できません。Safariの設定でカメラを許可してください','ng');}
+}
+function stopScan(){if(timer){clearInterval(timer);timer=null;}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}document.getElementById('scan-area').style.display='none';document.getElementById('scan-btn').style.display='block';}
+function scanFrame(){
+  const video=document.getElementById('video');if(video.readyState!==video.HAVE_ENOUGH_DATA)return;
+  const canvas=document.getElementById('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const img=ctx.getImageData(0,0,canvas.width,canvas.height);const code=window.jsQR?jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
+  if(code){stopScan();applyOwnQR(code.data);}
+}
+function applyOwnQR(raw){
+  if(!raw.startsWith('TRUCK:')){showMsg('scan-msg','このシステムで発行したQRコードではありません','ng');return;}
+  const key=raw.slice(6).trim();const m=data.masters.find(x=>normalizePlate(x.plate)===key);
+  if(!m){showMsg('scan-msg','QRに対応する車両がマスタに登録されていません','ng');return;}
+  document.getElementById('entry-plate').value=m.plate;document.getElementById('entry-vendor').value=m.vendor;document.getElementById('entry-item').value=m.item;showMsg('scan-msg',`読取成功：${m.vendor}（${m.plate}）`);
+}
+document.getElementById('entry-plate').addEventListener('input',e=>{
+  const m=data.masters.find(x=>normalizePlate(x.plate)===normalizePlate(e.target.value));
+  document.getElementById('entry-vendor').value=m?.vendor||'';document.getElementById('entry-item').value=m?.item||'';
+});
+function registerEntry(){
+  const plate=document.getElementById('entry-plate').value.trim();const weight=parseFloat(document.getElementById('entry-weight').value);const m=data.masters.find(x=>normalizePlate(x.plate)===normalizePlate(plate));
+  if(!m){showMsg('entry-msg','登録済み車両の自社QRを読み取るか、マスタ登録済みのナンバーを入力してください','ng');return;}
+  if(!weight||weight<=0){showMsg('entry-msg','入場重量を入力してください','ng');return;}
+  data.entries.push({time:new Date().toISOString(),plate:m.plate,vendor:m.vendor,item:m.item,weight});persist();render();
+  ['entry-plate','entry-vendor','entry-item','entry-weight'].forEach(id=>document.getElementById(id).value='');showMsg('entry-msg','入場登録が完了しました');
+}
+render();
+</script>
+</body>
+</html>
