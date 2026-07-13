@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>計量管理システム（iPhone対応版）</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f1117}
+iframe{border:0;width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+<iframe id="app" src="truck-scale-system-own-qr.html" allow="camera; autoplay" title="計量管理システム"></iframe>
+<script>
+(function(){
+  const frame=document.getElementById('app');
+
+  frame.addEventListener('load',()=>{
+    const w=frame.contentWindow;
+    const d=frame.contentDocument;
+    if(!w||!d)return;
+
+    let busy=false;
+
+    w.scanFrame=async function(){
+      if(busy)return;
+
+      const video=d.getElementById('video');
+      const canvas=d.getElementById('canvas');
+      if(!video||!canvas||video.readyState<2||!video.videoWidth||!video.videoHeight)return;
+
+      busy=true;
+      try{
+        const maxWidth=960;
+        const scale=Math.min(1,maxWidth/video.videoWidth);
+        canvas.width=Math.max(320,Math.round(video.videoWidth*scale));
+        canvas.height=Math.max(240,Math.round(video.videoHeight*scale));
+
+        const ctx=canvas.getContext('2d',{willReadFrequently:true});
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+        let raw='';
+
+        if('BarcodeDetector' in w){
+          try{
+            const detector=new w.BarcodeDetector({formats:['qr_code']});
+            const codes=await detector.detect(canvas);
+            if(codes&&codes.length)raw=codes[0].rawValue||'';
+          }catch(e){}
+        }
+
+        if(!raw&&typeof w.jsQR!=='undefined'){
+          try{
+            const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+            let code=w.jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
+            if(code&&code.data)raw=code.data;
+
+            if(!raw){
+              const side=Math.floor(Math.min(canvas.width,canvas.height)*0.82);
+              const sx=Math.floor((canvas.width-side)/2);
+              const sy=Math.floor((canvas.height-side)/2);
+              const crop=ctx.getImageData(sx,sy,side,side);
+              code=w.jsQR(crop.data,side,side,{inversionAttempts:'attemptBoth'});
+              if(code&&code.data)raw=code.data;
+            }
+          }catch(e){}
+        }
+
+        if(raw){
+          w.stopScan();
+          w.applyOwnQR(raw);
+        }
+      }finally{
+        busy=false;
+      }
+    };
+
+    const originalStart=w.startScan;
+    w.startScan=async function(){
+      const msg=d.getElementById('scan-msg');
+      if(msg){
+        msg.className='msg ok';
+        msg.textContent='QRコードを枠いっぱいに映し、2～3秒静止してください';
+      }
+      return originalStart.apply(this,arguments);
+    };
+  });
+})();
+</script>
+</body>
+</html>
