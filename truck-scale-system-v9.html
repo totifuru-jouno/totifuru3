@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>計量管理システム｜クラウド共有版 v9</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--card2:#222638;--line:#2e3347;--accent:#00d4aa;--warn:#f5a623;--danger:#ff5b5b;--text:#eef1f7;--muted:#8990a6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+header{position:sticky;top:0;z-index:10;background:var(--card);padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+main{max-width:1100px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}.title{font-weight:700;font-size:18px;margin-bottom:14px}.note{color:var(--muted);font-size:13px;line-height:1.7}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input,select{width:100%;background:#0b0d12;border:1px solid var(--line);color:var(--text);padding:12px;border-radius:8px;font-size:16px}
+button{border:0;border-radius:8px;padding:12px 14px;font-weight:700;font-size:15px;cursor:pointer}.primary{background:var(--accent);color:#00231c}.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line)}.warning{background:var(--warn);color:#1b1200}.danger{background:var(--danger);color:#fff}.block{width:100%}.row{display:flex;gap:8px}.row>*{flex:1}
+#scanArea{display:none}.msg{display:none;margin-top:10px;padding:10px;border-radius:8px}.ok{display:block;background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.35);color:var(--accent)}.ng{display:block;background:rgba(255,91,91,.12);border:1px solid rgba(255,91,91,.35);color:#ff8585}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}.stat{background:#0b0d12;border:1px solid var(--line);border-radius:10px;padding:14px}.stat .n{font-size:24px;font-weight:700}.stat .s{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);white-space:nowrap}.badge{display:inline-block;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:700}.in{background:rgba(245,166,35,.15);color:var(--warn)}.done{background:rgba(0,212,170,.15);color:var(--accent)}
+.modalBg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:30;align-items:center;justify-content:center;padding:18px}.modalBg.show{display:flex}.modal{width:460px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;text-align:center}.qrbox{background:#fff;padding:16px;border-radius:8px;display:inline-block}
+.recordCards{display:grid;gap:12px}.recordCard{background:#0b0d12;border:1px solid var(--line);border-radius:10px;padding:14px}.recordHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.recordPlate{font-size:20px;font-weight:700}.recordMeta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.recordMeta div{border-top:1px solid var(--line);padding-top:8px}.recordMeta small{display:block;color:var(--muted);margin-bottom:4px}.netBig{font-size:22px;font-weight:700;color:var(--accent)}
+@media(max-width:760px){.grid,.stats{grid-template-columns:1fr}.row{flex-direction:column}table{font-size:12px}.recordMeta{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><strong>⚖ 計量管理システム</strong><span style="color:var(--accent)">クラウド共有版 v9</span></header>
+<main>
+<div class="card">
+  <div class="title">v9の機能</div>
+  <div class="note">入退場・正味重量・履歴・CSV機能に加え、計量記録をSupabaseへ保存します。事務所PCと現場iPhoneで同じ記録を共有できます。<br><span id="cloudStatus" style="color:var(--warn)">クラウドへ接続中…</span></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n" id="statIn">0</div><div class="s">現在入場中</div></div>
+  <div class="stat"><div class="n" id="statDone">0</div><div class="s">本日完了</div></div>
+  <div class="stat"><div class="n" id="statNet">0.00 t</div><div class="s">本日の正味重量合計</div></div>
+</div>
+
+<div class="grid">
+<div class="card">
+  <div class="title">🚛 入場受付</div>
+  <div id="scanArea">
+    <div id="reader" style="width:100%;overflow:hidden;border-radius:10px;background:#000"></div>
+    <div class="note" style="margin-top:8px">QRコードを中央の枠へ近づけ、1～2秒静止してください。</div>
+    <button class="secondary block" style="margin-top:8px" onclick="stopScan()">スキャン停止</button>
+  </div>
+  <button id="scanBtn" class="primary block" onclick="startScan()">📷 自社QRを読み取る</button>
+  <div id="scanMsg" class="msg"></div>
+  <label>車両ナンバー</label><input id="entryPlate" placeholder="QR読取または手入力">
+  <label>業者名</label><input id="entryVendor" readonly>
+  <label>品目</label><input id="entryItem" readonly>
+  <label>入場重量（t）</label><input id="entryWeight" type="number" step="0.01" placeholder="例 8.45">
+  <button class="primary block" style="margin-top:12px" onclick="registerEntry()">入場登録</button>
+  <div id="entryMsg" class="msg"></div>
+</div>
+
+<div class="card">
+  <div class="title">🚚 退場受付</div>
+  <label>入場中の車両</label>
+  <select id="exitSelect" onchange="fillExitInfo()"></select>
+  <label>車両ナンバー</label><input id="exitPlate" readonly>
+  <label>業者名</label><input id="exitVendor" readonly>
+  <label>入場重量（t）</label><input id="exitInWeight" readonly>
+  <label>退場重量（t）</label><input id="exitWeight" type="number" step="0.01" placeholder="例 3.20">
+  <div class="note" id="netPreview" style="margin-top:10px">正味重量：—</div>
+  <button class="warning block" style="margin-top:12px" onclick="registerExit()">退場登録・正味重量計算</button>
+  <div id="exitMsg" class="msg"></div>
+</div>
+</div>
+
+<div class="card">
+  <div class="title">本日の入退場記録</div>
+  <div id="recordsTable" class="recordCards"></div>
+</div>
+
+
+<div class="card">
+  <div class="title">📊 日別・月別履歴・CSV出力</div>
+  <div class="grid">
+    <div>
+      <label>表示期間</label>
+      <select id="historyMode" onchange="renderHistory()">
+        <option value="day">日別</option>
+        <option value="month">月別</option>
+      </select>
+    </div>
+    <div>
+      <label>対象日・対象月</label>
+      <input id="historyDate" type="date" onchange="renderHistory()">
+      <input id="historyMonth" type="month" onchange="renderHistory()" style="display:none">
+    </div>
+  </div>
+  <div class="stats" style="margin-top:14px">
+    <div class="stat"><div class="n" id="histCount">0</div><div class="s">完了台数</div></div>
+    <div class="stat"><div class="n" id="histNet">0.00 t</div><div class="s">正味重量合計</div></div>
+    <div class="stat"><div class="n" id="histAll">0</div><div class="s">全記録数</div></div>
+  </div>
+  <button class="primary block" onclick="exportCSV()">CSV出力</button>
+  <div id="historyMsg" class="msg"></div>
+  <div id="historyCards" class="recordCards" style="margin-top:14px"></div>
+</div>
+
+<div class="card">
+  <div class="title">🗂 業者・車両マスタ</div>
+  <div class="grid">
+    <div><label>車両ナンバー *</label><input id="mPlate" placeholder="福島 100 あ 1234"></div>
+    <div><label>業者名 *</label><input id="mVendor" placeholder="株式会社〇〇"></div>
+  </div>
+  <label>標準品目</label><input id="mItem" placeholder="一般廃棄物">
+  <button class="primary block" style="margin-top:12px" onclick="saveMaster()">登録・更新</button>
+  <div id="masterMsg" class="msg"></div>
+  <div style="overflow-x:auto;margin-top:16px">
+    <table><thead><tr><th>ID</th><th>ナンバー</th><th>業者名</th><th>品目</th><th>操作</th></tr></thead><tbody id="masterTable"></tbody></table>
+  </div>
+</div>
+</main>
+
+<div id="qrModal" class="modalBg"><div class="modal"><div class="title">自社発行QRコード</div><div id="qrInfo"></div><div id="qrCode" class="qrbox" style="margin:14px 0"></div><div class="row"><button class="secondary" onclick="closeQR()">閉じる</button><button class="primary" onclick="printQR()">印刷</button></div></div></div>
+
+<script>
+
+const SUPABASE_URL='https://yicufbqamuejqwprfjhn.supabase.co';
+const SUPABASE_KEY='sb_publishable_X5DJRthFFhbV7CLlE2vlvg_rv2_YIaP';
+const API_URL=SUPABASE_URL+'/rest/v1/weighing_records';
+const API_HEADERS={
+  'apikey':SUPABASE_KEY,
+  'Authorization':'Bearer '+SUPABASE_KEY,
+  'Content-Type':'application/json'
+};
+let cloudReady=false;
+
+function setCloudStatus(text,ok=true){
+  const el=document.getElementById('cloudStatus');
+  if(el){el.textContent=text;el.style.color=ok?'var(--accent)':'var(--danger)'}
+}
+function rowToRecord(r){
+  return {
+    id:r.record_id||('R'+r.id),
+    masterId:r.master_id||'',
+    plate:r.vehicle_number||'',
+    vendor:r.company_name||'',
+    item:r.material||'',
+    entryTime:r.entry_time||r.created_at,
+    inWeight:Number(r.in_weight ?? r.weight ?? 0),
+    exitTime:r.exit_time||null,
+    outWeight:r.out_weight==null?null:Number(r.out_weight),
+    netWeight:r.net_weight==null?null:Number(r.net_weight),
+    cloudId:r.id
+  }
+}
+async function cloudRequest(path='',options={}){
+  const response=await fetch(API_URL+path,{...options,headers:{...API_HEADERS,...(options.headers||{})}});
+  if(!response.ok){
+    const text=await response.text();
+    throw new Error(text||('HTTP '+response.status));
+  }
+  if(response.status===204)return null;
+  const text=await response.text();
+  return text?JSON.parse(text):null;
+}
+async function loadCloudRecords(){
+  try{
+    const rows=await cloudRequest('?select=*&order=entry_time.asc');
+    data.records=(rows||[]).map(rowToRecord);
+    cloudReady=true;
+    setCloudStatus('● クラウド接続中');
+    render();
+  }catch(e){
+    cloudReady=false;
+    setCloudStatus('クラウド接続エラー（端末内データで動作）',false);
+    console.error(e);
+  }
+}
+
+const KEY='truckScaleSystemV6';
+const OLD_KEY='truckScaleOwnQrV4';
+let data=loadData(),html5QrCode=null,scannerRunning=false,currentQRHtml='';
+
+function loadData(){
+  try{const x=JSON.parse(localStorage.getItem(KEY));if(x)return normalizeData(x)}catch(e){}
+  let old=null;
+  try{old=JSON.parse(localStorage.getItem(OLD_KEY))}catch(e){}
+  const masters=(old&&old.masters&&old.masters.length)?old.masters:[
+    {id:'000001',plate:'福島100あ1234',vendor:'鈴木運送',item:'一般廃棄物'},
+    {id:'000002',plate:'福島200い5678',vendor:'田中産業',item:'産業廃棄物'}
+  ];
+  return normalizeData({masters,records:[]})
+}
+function normalizeData(x){
+  x.masters=x.masters||[];x.records=x.records||[];
+  x.masters.forEach((m,i)=>{if(!m.id)m.id=String(i+1).padStart(6,'0')});
+  return x
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function norm(v){return String(v||'').replace(/[\s　-]/g,'').toUpperCase()}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function msg(id,text,type='ok'){const e=document.getElementById(id);e.className='msg '+type;e.textContent=text;setTimeout(()=>{e.className='msg';e.textContent=''},4000)}
+function nextId(){return String(Math.max(0,...data.masters.map(m=>parseInt(m.id)||0))+1).padStart(6,'0')}
+function fmtTime(v){return v?new Date(v).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'—'}
+function todayKey(v){return new Date(v).toLocaleDateString('ja-JP')}
+function round2(v){return Math.round((Number(v)+Number.EPSILON)*100)/100}
+
+function render(){
+  save();
+  const today=new Date().toLocaleDateString('ja-JP');
+  const rows=data.records.filter(r=>todayKey(r.entryTime)===today);
+  const active=data.records.filter(r=>!r.exitTime);
+
+  statIn.textContent=active.length;
+  statDone.textContent=rows.filter(r=>r.exitTime).length;
+  statNet.textContent=rows.filter(r=>r.exitTime).reduce((s,r)=>s+Number(r.netWeight||0),0).toFixed(2)+' t';
+
+  exitSelect.innerHTML='<option value="">選択してください</option>'+active.map(r=>`<option value="${r.id}">${esc(r.plate)}｜${esc(r.vendor)}｜入場 ${fmtTime(r.entryTime)}</option>`).join('');
+  fillExitInfo();
+
+  recordsTable.innerHTML=rows.length?rows.slice().reverse().map(r=>`
+    <div class="recordCard">
+      <div class="recordHead"><div class="recordPlate">${esc(r.plate)}</div><span class="badge ${r.exitTime?'done':'in'}">${r.exitTime?'完了':'入場中'}</span></div>
+      <div class="note" style="margin-top:6px">${esc(r.vendor)} ／ ${esc(r.item)}</div>
+      <div class="recordMeta">
+        <div><small>入場</small>${fmtTime(r.entryTime)} ／ ${Number(r.inWeight).toFixed(2)} t</div>
+        <div><small>退場</small>${fmtTime(r.exitTime)} ／ ${r.exitTime?Number(r.outWeight).toFixed(2)+' t':'—'}</div>
+        <div><small>正味重量</small><span class="${r.exitTime?'netBig':''}">${r.exitTime?Number(r.netWeight).toFixed(2)+' t':'計量待ち'}</span></div>
+        <div><small>操作</small><button class="danger" style="padding:7px 10px;font-size:12px" onclick="deleteRecord('${r.id}')">削除</button></div>
+      </div>
+    </div>`).join(''):'<div class="note">本日の記録はありません</div>';
+
+  if(typeof renderHistory==='function' && document.getElementById('historyCards')) renderHistory();
+
+  masterTable.innerHTML=data.masters.map((m,i)=>`<tr><td>${m.id}</td><td>${esc(m.plate)}</td><td>${esc(m.vendor)}</td><td>${esc(m.item)}</td><td><div class="row"><button class="secondary" onclick="showQR(${i})">QR表示</button><button class="danger" onclick="removeMaster(${i})">削除</button></div></td></tr>`).join('')
+}
+function saveMaster(){
+  const plate=mPlate.value.trim(),vendor=mVendor.value.trim(),item=mItem.value.trim();
+  if(!plate||!vendor){msg('masterMsg','車両ナンバーと業者名を入力してください','ng');return}
+  const found=data.masters.find(m=>norm(m.plate)===norm(plate));
+  if(found){found.plate=plate;found.vendor=vendor;found.item=item}else data.masters.push({id:nextId(),plate,vendor,item});
+  mPlate.value=mVendor.value=mItem.value='';render();msg('masterMsg',found?'登録内容を更新しました':'車両を登録しました')
+}
+function removeMaster(i){
+  const m=data.masters[i];
+  if(data.records.some(r=>!r.exitTime&&r.masterId===m.id)){msg('masterMsg','入場中の車両は削除できません','ng');return}
+  if(confirm('この車両を削除しますか？')){data.masters.splice(i,1);render()}
+}
+function showQR(i){
+  const m=data.masters[i],qr=qrcode(0,'M');qr.addData('TRUCK:'+m.id,'Byte');qr.make();currentQRHtml=qr.createSvgTag(7,10);
+  qrInfo.textContent=`${m.vendor}（${m.plate}） ID:${m.id}`;qrCode.innerHTML=currentQRHtml;qrModal.classList.add('show')
+}
+function closeQR(){qrModal.classList.remove('show')}
+function printQR(){const w=window.open('','_blank');w.document.write(`<meta charset="UTF-8"><body style="text-align:center;font-family:sans-serif;padding:35px"><h2>計量管理システム 自社QR</h2><p>${esc(qrInfo.textContent)}</p>${currentQRHtml}<p>受付時に提示してください</p></body>`);w.document.close();setTimeout(()=>w.print(),400)}
+
+async function startScan(){
+  if(scannerRunning)return;
+  try{
+    scanArea.style.display='block';scanBtn.style.display='none';msg('scanMsg','カメラを準備しています…');
+    html5QrCode=new Html5Qrcode('reader',{verbose:false});
+    await html5QrCode.start(
+      {facingMode:'environment'},
+      {fps:12,qrbox:(w,h)=>{const s=Math.floor(Math.min(w,h)*0.72);return{width:s,height:s}},aspectRatio:1.0,disableFlip:false},
+      decodedText=>{stopScan().then(()=>applyQR(decodedText))},
+      ()=>{}
+    );
+    scannerRunning=true;msg('scanMsg','QRコードを中央の枠へ近づけてください')
+  }catch(e){scannerRunning=false;scanArea.style.display='none';scanBtn.style.display='block';msg('scanMsg','カメラを起動できません。Safariのカメラ許可を確認してください','ng')}
+}
+async function stopScan(){
+  try{if(html5QrCode){if(scannerRunning)await html5QrCode.stop();await html5QrCode.clear()}}catch(e){}
+  html5QrCode=null;scannerRunning=false;scanArea.style.display='none';scanBtn.style.display='block'
+}
+function applyQR(raw){
+  const m=/^TRUCK:(\d{6})$/.exec(String(raw).trim());
+  if(!m){msg('scanMsg','対象外のQRです','ng');return}
+  const x=data.masters.find(v=>v.id===m[1]);if(!x){msg('scanMsg','このIDの車両は登録されていません','ng');return}
+  entryPlate.value=x.plate;entryVendor.value=x.vendor;entryItem.value=x.item;msg('scanMsg',`読取成功：${x.vendor}（${x.plate}）`)
+}
+entryPlate.addEventListener('input',e=>{const x=data.masters.find(v=>norm(v.plate)===norm(e.target.value));entryVendor.value=x?.vendor||'';entryItem.value=x?.item||''})
+
+async function registerEntry(){
+  const x=data.masters.find(v=>norm(v.plate)===norm(entryPlate.value));
+  const w=parseFloat(entryWeight.value);
+  if(!x){msg('entryMsg','登録済み車両を読み取ってください','ng');return}
+  if(data.records.some(r=>!r.exitTime&&r.masterId===x.id)){msg('entryMsg','この車両はすでに入場中です','ng');return}
+  if(!w||w<=0){msg('entryMsg','入場重量を入力してください','ng');return}
+
+  const record={
+    id:'R'+Date.now(),masterId:x.id,plate:x.plate,vendor:x.vendor,item:x.item,
+    entryTime:new Date().toISOString(),inWeight:round2(w),
+    exitTime:null,outWeight:null,netWeight:null
+  };
+
+  try{
+    const rows=await cloudRequest('',{
+      method:'POST',
+      headers:{'Prefer':'return=representation'},
+      body:JSON.stringify({
+        record_id:record.id,
+        master_id:record.masterId,
+        vehicle_number:record.plate,
+        company_name:record.vendor,
+        material:record.item,
+        entry_time:record.entryTime,
+        in_weight:record.inWeight,
+        status:'入場中',
+        qr_code:'TRUCK:'+record.masterId,
+        weight:record.inWeight
+      })
+    });
+    if(rows&&rows[0])record.cloudId=rows[0].id;
+    cloudReady=true;setCloudStatus('● クラウド接続中');
+  }catch(e){
+    console.error(e);
+    msg('entryMsg','クラウド保存に失敗しました。通信状態を確認してください','ng');
+    setCloudStatus('クラウド保存エラー',false);
+    return;
+  }
+
+  data.records.push(record);
+  entryPlate.value=entryVendor.value=entryItem.value=entryWeight.value='';
+  render();msg('entryMsg','入場登録をクラウドへ保存しました')
+}
+function fillExitInfo(){
+  const r=data.records.find(x=>x.id===exitSelect.value&&!x.exitTime);
+  exitPlate.value=r?.plate||'';exitVendor.value=r?.vendor||'';exitInWeight.value=r?Number(r.inWeight).toFixed(2):'';
+  updatePreview()
+}
+exitWeight.addEventListener('input',updatePreview);
+function updatePreview(){
+  const r=data.records.find(x=>x.id===exitSelect.value&&!x.exitTime),out=parseFloat(exitWeight.value);
+  netPreview.textContent=(r&&out>0)?`正味重量：${Math.abs(round2(r.inWeight-out)).toFixed(2)} t`:'正味重量：—'
+}
+async function registerExit(){
+  const r=data.records.find(x=>x.id===exitSelect.value&&!x.exitTime),out=parseFloat(exitWeight.value);
+  if(!r){msg('exitMsg','入場中の車両を選択してください','ng');return}
+  if(!out||out<=0){msg('exitMsg','退場重量を入力してください','ng');return}
+
+  const exitTime=new Date().toISOString();
+  const outWeight=round2(out);
+  const netWeight=Math.abs(round2(r.inWeight-outWeight));
+
+  try{
+    await cloudRequest('?record_id=eq.'+encodeURIComponent(r.id),{
+      method:'PATCH',
+      headers:{'Prefer':'return=minimal'},
+      body:JSON.stringify({
+        exit_time:exitTime,
+        out_weight:outWeight,
+        net_weight:netWeight,
+        status:'完了',
+        weight:netWeight
+      })
+    });
+    cloudReady=true;setCloudStatus('● クラウド接続中');
+  }catch(e){
+    console.error(e);
+    msg('exitMsg','クラウド更新に失敗しました。通信状態を確認してください','ng');
+    setCloudStatus('クラウド更新エラー',false);
+    return;
+  }
+
+  r.exitTime=exitTime;r.outWeight=outWeight;r.netWeight=netWeight;
+  exitWeight.value='';render();msg('exitMsg',`退場登録完了　正味重量 ${Number(r.netWeight).toFixed(2)} t`)
+}
+async function deleteRecord(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  try{
+    await cloudRequest('?record_id=eq.'+encodeURIComponent(id),{
+      method:'DELETE',
+      headers:{'Prefer':'return=minimal'}
+    });
+    data.records=data.records.filter(r=>r.id!==id);
+    render();setCloudStatus('● クラウド接続中')
+  }catch(e){
+    console.error(e);
+    alert('クラウドから削除できませんでした。通信状態を確認してください。');
+    setCloudStatus('クラウド削除エラー',false)
+  }
+}
+
+function localYMD(v){
+  const d=new Date(v),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`
+}
+function localYM(v){return localYMD(v).slice(0,7)}
+function historyRows(){
+  const mode=historyMode.value;
+  const key=mode==='day'?historyDate.value:historyMonth.value;
+  if(!key)return [];
+  return data.records.filter(r=>(mode==='day'?localYMD(r.entryTime):localYM(r.entryTime))===key)
+}
+function renderHistory(){
+  const mode=historyMode.value;
+  historyDate.style.display=mode==='day'?'block':'none';
+  historyMonth.style.display=mode==='month'?'block':'none';
+  const rows=historyRows(),done=rows.filter(r=>r.exitTime);
+  histCount.textContent=done.length;
+  histNet.textContent=done.reduce((s,r)=>s+Number(r.netWeight||0),0).toFixed(2)+' t';
+  histAll.textContent=rows.length;
+  historyCards.innerHTML=rows.length?rows.slice().reverse().map(r=>`
+    <div class="recordCard">
+      <div class="recordHead"><div class="recordPlate">${esc(r.plate)}</div><span class="badge ${r.exitTime?'done':'in'}">${r.exitTime?'完了':'入場中'}</span></div>
+      <div class="note" style="margin-top:6px">${localYMD(r.entryTime)} ／ ${esc(r.vendor)} ／ ${esc(r.item)}</div>
+      <div class="recordMeta">
+        <div><small>入場</small>${fmtTime(r.entryTime)} ／ ${Number(r.inWeight).toFixed(2)} t</div>
+        <div><small>退場</small>${fmtTime(r.exitTime)} ／ ${r.exitTime?Number(r.outWeight).toFixed(2)+' t':'—'}</div>
+        <div><small>正味重量</small><span class="${r.exitTime?'netBig':''}">${r.exitTime?Number(r.netWeight).toFixed(2)+' t':'計量待ち'}</span></div>
+        <div><small>ID</small>${esc(r.masterId||'—')}</div>
+      </div>
+    </div>`).join(''):'<div class="note">対象期間の記録はありません</div>'
+}
+function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
+function exportCSV(){
+  const rows=historyRows();
+  if(!rows.length){msg('historyMsg','出力する記録がありません','ng');return}
+  const header=['日付','入場時刻','退場時刻','車両ID','車両ナンバー','業者名','品目','入場重量(t)','退場重量(t)','正味重量(t)','状態'];
+  const body=rows.map(r=>[
+    localYMD(r.entryTime),fmtTime(r.entryTime),r.exitTime?fmtTime(r.exitTime):'',r.masterId||'',
+    r.plate,r.vendor,r.item,Number(r.inWeight).toFixed(2),
+    r.exitTime?Number(r.outWeight).toFixed(2):'',
+    r.exitTime?Number(r.netWeight).toFixed(2):'',
+    r.exitTime?'完了':'入場中'
+  ]);
+  const csv='\uFEFF'+[header,...body].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  const key=historyMode.value==='day'?historyDate.value:historyMonth.value;
+  a.href=url;a.download=`計量履歴_${key}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  msg('historyMsg','CSVを出力しました')
+}
+function initHistory(){
+  const now=new Date(),ymd=localYMD(now);
+  historyDate.value=ymd;historyMonth.value=ymd.slice(0,7);renderHistory()
+}
+
+render();
+initHistory();
+loadCloudRecords();
+</script>
+</body>
+</html>
