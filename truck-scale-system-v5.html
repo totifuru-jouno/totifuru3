@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>計量管理システム｜数字ID QR iPhone読取版 v5</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--line:#2e3347;--accent:#00d4aa;--danger:#ff5b5b;--text:#eef1f7;--muted:#8990a6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+header{position:sticky;top:0;z-index:10;background:var(--card);padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+main{max-width:980px;margin:auto;padding:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}.title{font-weight:700;font-size:18px;margin-bottom:14px}.note{color:var(--muted);font-size:13px;line-height:1.7}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}input{width:100%;background:#0b0d12;border:1px solid var(--line);color:var(--text);padding:12px;border-radius:8px;font-size:16px}
+button{border:0;border-radius:8px;padding:12px 14px;font-weight:700;font-size:15px;cursor:pointer}.primary{background:var(--accent);color:#00231c}.secondary{background:#222638;color:var(--text);border:1px solid var(--line)}.danger{background:var(--danger);color:#fff}.block{width:100%}.row{display:flex;gap:8px}.row>*{flex:1}
+#scanArea{display:none}.videoWrap{position:relative;background:#000;border-radius:10px;overflow:hidden}.videoWrap video{width:100%;display:block;max-height:360px;object-fit:cover}.frame{position:absolute;inset:12%;border:3px solid var(--accent);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.msg{display:none;margin-top:10px;padding:10px;border-radius:8px}.ok{display:block;background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.35);color:var(--accent)}.ng{display:block;background:rgba(255,91,91,.12);border:1px solid rgba(255,91,91,.35);color:#ff8585}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted)}
+.modalBg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:30;align-items:center;justify-content:center;padding:18px}.modalBg.show{display:flex}.modal{width:440px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;text-align:center}.qrbox{background:#fff;padding:16px;border-radius:8px;display:inline-block}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.row{flex-direction:column}}
+</style>
+</head>
+<body>
+<header><strong>⚖ 計量管理システム</strong><span style="color:var(--accent)">iPhone読取版 v5</span></header>
+<main>
+<div class="card"><div class="title">この版の特徴</div><div class="note">数字ID QR方式はそのままに、iPhone Safari向けのQR読取エンジンへ変更したv5版です。</div></div>
+<div class="grid">
+<div class="card">
+<div class="title">🚛 入場受付</div>
+<div id="scanArea"><div id="reader" style="width:100%;overflow:hidden;border-radius:10px;background:#000"></div><div class="note" style="margin-top:8px">QRコードだけを中央の枠へ近づけ、1～2秒静止してください。</div><button class="secondary block" style="margin-top:8px" onclick="stopScan()">スキャン停止</button></div>
+<button id="scanBtn" class="primary block" onclick="startScan()">📷 自社QRを読み取る</button>
+<div id="scanMsg" class="msg"></div>
+<label>車両ナンバー</label><input id="entryPlate" placeholder="QR読取または手入力">
+<label>業者名</label><input id="entryVendor" readonly>
+<label>品目</label><input id="entryItem" readonly>
+<label>入場重量（t）</label><input id="entryWeight" type="number" step="0.01" placeholder="例 8.45">
+<button class="primary block" style="margin-top:12px" onclick="registerEntry()">入場登録</button>
+<div id="entryMsg" class="msg"></div>
+</div>
+
+<div class="card">
+<div class="title">🗂 業者・車両マスタ</div>
+<label>車両ナンバー *</label><input id="mPlate" placeholder="福島 100 あ 1234">
+<label>業者名 *</label><input id="mVendor" placeholder="株式会社〇〇">
+<label>標準品目</label><input id="mItem" placeholder="一般廃棄物">
+<button class="primary block" style="margin-top:12px" onclick="saveMaster()">登録・更新</button>
+<div id="masterMsg" class="msg"></div>
+</div>
+</div>
+
+<div class="card"><div class="title">登録済み車両</div><div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>ナンバー</th><th>業者名</th><th>品目</th><th>操作</th></tr></thead><tbody id="masterTable"></tbody></table></div></div>
+<div class="card"><div class="title">本日の入場記録</div><div style="overflow-x:auto"><table><thead><tr><th>時刻</th><th>ナンバー</th><th>業者名</th><th>品目</th><th>重量</th></tr></thead><tbody id="entryTable"></tbody></table></div></div>
+</main>
+
+<div id="qrModal" class="modalBg"><div class="modal"><div class="title">自社発行QRコード</div><div id="qrInfo"></div><div id="qrCode" class="qrbox" style="margin:14px 0"></div><div class="row"><button class="secondary" onclick="closeQR()">閉じる</button><button class="primary" onclick="printQR()">印刷</button></div></div></div>
+
+<script>
+const KEY='truckScaleOwnQrV4';
+let data=loadData(),html5QrCode=null,scannerRunning=false,currentQRHtml='';
+
+function loadData(){
+  try{const x=JSON.parse(localStorage.getItem(KEY));if(x)return x}catch(e){}
+  return {masters:[
+    {id:'000001',plate:'福島100あ1234',vendor:'鈴木運送',item:'一般廃棄物'},
+    {id:'000002',plate:'福島200い5678',vendor:'田中産業',item:'産業廃棄物'}
+  ],entries:[]}
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function norm(v){return String(v||'').replace(/[\s　-]/g,'').toUpperCase()}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function msg(id,text,type='ok'){const e=document.getElementById(id);e.className='msg '+type;e.textContent=text;setTimeout(()=>{e.className='msg';e.textContent=''},4000)}
+function nextId(){return String(Math.max(0,...data.masters.map(m=>parseInt(m.id)||0))+1).padStart(6,'0')}
+function render(){
+  save();
+  masterTable.innerHTML=data.masters.map((m,i)=>`<tr><td>${m.id}</td><td>${esc(m.plate)}</td><td>${esc(m.vendor)}</td><td>${esc(m.item)}</td><td><div class="row"><button class="secondary" onclick="showQR(${i})">QR表示</button><button class="danger" onclick="removeMaster(${i})">削除</button></div></td></tr>`).join('');
+  const today=new Date().toLocaleDateString('ja-JP');
+  const rows=data.entries.filter(e=>new Date(e.time).toLocaleDateString('ja-JP')===today);
+  entryTable.innerHTML=rows.length?rows.slice().reverse().map(e=>`<tr><td>${new Date(e.time).toLocaleTimeString('ja-JP')}</td><td>${esc(e.plate)}</td><td>${esc(e.vendor)}</td><td>${esc(e.item)}</td><td>${Number(e.weight).toFixed(2)} t</td></tr>`).join(''):'<tr><td colspan="5">本日の入場記録はありません</td></tr>'
+}
+function saveMaster(){
+  const plate=mPlate.value.trim(),vendor=mVendor.value.trim(),item=mItem.value.trim();
+  if(!plate||!vendor){msg('masterMsg','車両ナンバーと業者名を入力してください','ng');return}
+  const found=data.masters.find(m=>norm(m.plate)===norm(plate));
+  if(found){found.plate=plate;found.vendor=vendor;found.item=item}else data.masters.push({id:nextId(),plate,vendor,item});
+  mPlate.value=mVendor.value=mItem.value='';render();msg('masterMsg',found?'登録内容を更新しました':'車両を登録しました')
+}
+function removeMaster(i){if(confirm('この車両を削除しますか？')){data.masters.splice(i,1);render()}}
+function showQR(i){
+  const m=data.masters[i],qr=qrcode(0,'M');qr.addData('TRUCK:'+m.id,'Byte');qr.make();currentQRHtml=qr.createSvgTag(7,10);
+  qrInfo.textContent=`${m.vendor}（${m.plate}） ID:${m.id}`;qrCode.innerHTML=currentQRHtml;qrModal.classList.add('show')
+}
+function closeQR(){qrModal.classList.remove('show')}
+function printQR(){const w=window.open('','_blank');w.document.write(`<meta charset="UTF-8"><body style="text-align:center;font-family:sans-serif;padding:35px"><h2>計量管理システム 自社QR</h2><p>${esc(qrInfo.textContent)}</p>${currentQRHtml}<p>受付時に提示してください</p></body>`);w.document.close();setTimeout(()=>w.print(),400)}
+async function startScan(){
+  if(scannerRunning)return;
+  try{
+    scanArea.style.display='block';
+    scanBtn.style.display='none';
+    msg('scanMsg','カメラを準備しています…');
+    html5QrCode=new Html5Qrcode('reader',{verbose:false});
+    const config={
+      fps:12,
+      qrbox:function(viewWidth,viewHeight){
+        const size=Math.floor(Math.min(viewWidth,viewHeight)*0.72);
+        return {width:size,height:size};
+      },
+      aspectRatio:1.0,
+      disableFlip:false
+    };
+    await html5QrCode.start(
+      {facingMode:'environment'},
+      config,
+      function(decodedText){
+        stopScan().then(()=>applyQR(decodedText));
+      },
+      function(){}
+    );
+    scannerRunning=true;
+    msg('scanMsg','QRコードを中央の枠へ近づけてください');
+  }catch(e){
+    scannerRunning=false;
+    scanArea.style.display='none';
+    scanBtn.style.display='block';
+    msg('scanMsg','カメラを起動できません。Safariのカメラ許可を確認してください','ng');
+  }
+}
+async function stopScan(){
+  try{
+    if(html5QrCode){
+      if(scannerRunning)await html5QrCode.stop();
+      await html5QrCode.clear();
+    }
+  }catch(e){}
+  html5QrCode=null;
+  scannerRunning=false;
+  scanArea.style.display='none';
+  scanBtn.style.display='block';
+}
+function applyQR(raw){
+  const m=/^TRUCK:(\d{6})$/.exec(String(raw).trim());
+  if(!m){msg('scanMsg','旧QRまたは対象外QRです。v4で発行したQRを使ってください','ng');return}
+  const x=data.masters.find(v=>v.id===m[1]);if(!x){msg('scanMsg','このIDの車両は登録されていません','ng');return}
+  entryPlate.value=x.plate;entryVendor.value=x.vendor;entryItem.value=x.item;msg('scanMsg',`読取成功：${x.vendor}（${x.plate}）`)
+}
+entryPlate.addEventListener('input',e=>{const x=data.masters.find(v=>norm(v.plate)===norm(e.target.value));entryVendor.value=x?.vendor||'';entryItem.value=x?.item||''})
+function registerEntry(){
+  const x=data.masters.find(v=>norm(v.plate)===norm(entryPlate.value)),w=parseFloat(entryWeight.value);
+  if(!x){msg('entryMsg','登録済み車両を読み取ってください','ng');return}
+  if(!w||w<=0){msg('entryMsg','入場重量を入力してください','ng');return}
+  data.entries.push({time:new Date().toISOString(),plate:x.plate,vendor:x.vendor,item:x.item,weight:w});entryPlate.value=entryVendor.value=entryItem.value=entryWeight.value='';render();msg('entryMsg','入場登録が完了しました')
+}
+render();
+</script>
+</body>
+</html>
